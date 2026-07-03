@@ -12,8 +12,10 @@ Cada guía es una página HTML autocontenida (sin dependencias externas) con la 
 |---|---|
 | `index.html` | Landing page / índice de guías |
 | `guia_pago_a_proveedores.html` | Módulo Pago a Proveedores |
+| `guia_instance_analyzer.html` | Instance Analyzer (optimizador) |
 | `guia_transporte_pasajeros.html` | Producto Transporte de Pasajeros |
 | `guia_ciberseguridad.html` | Ciberseguridad para preventa (ISO 27001, GCP, SSO, cifrado, incidentes) |
+| `guia_ejecucion_planes_api.html` | Ejecución de Planes vía API (simulación de operación para demos/POCs) |
 
 ## Cómo publicar con GitHub Pages
 
