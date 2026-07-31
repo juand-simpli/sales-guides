@@ -16,6 +16,7 @@ Cada guía es una página HTML autocontenida (sin dependencias externas) con la 
 | `guia_transporte_pasajeros.html` | Producto Transporte de Pasajeros |
 | `guia_ciberseguridad.html` | Ciberseguridad para preventa (ISO 27001, GCP, SSO, cifrado, incidentes) |
 | `guia_ejecucion_planes_api.html` | Ejecución de Planes vía API (simulación de operación para demos/POCs) |
+| `guia_zonas_y_habilidades.html` | Zonas y Habilidades (restricciones de optimización: geográfica vs aptitud) |
 
 ## Cómo publicar con GitHub Pages
 
