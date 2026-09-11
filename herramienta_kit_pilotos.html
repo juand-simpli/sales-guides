@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kit de Definición de Pilotos de ADA · SimpliRoute</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#010D47; --navy-2:#0B1A5C; --navy-muted:#23233F;
+    --purple:#4F51DA; --purple-vivid:#4B3BEF; --purple-deep:#2A2BA1;
+    --lilac:#9BAAE3; --blue-lilac:#6278FF;
+    --cyan:#39C2DA; --mint:#45E591; --coral:#E3687A; --gold:#E7B671;
+    --off-white:#F2F2F2; --white:#FFFFFF;
+    --card:#0E1B5E; --card-2:#101F6B; --border: rgba(155,170,227,0.22);
+    --text:#F2F2F2; --text-dim:#9BAAE3;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Noto Sans', Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 85% -10%, rgba(79,81,218,0.35), transparent 60%), var(--navy);
+    color:var(--text);
+    min-height:100vh;
+    padding:28px 20px 60px;
+    line-height:1.55;
+  }
+  .wrap{max-width:1180px; margin:0 auto;}
+  header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px;
+    padding-bottom:22px; margin-bottom:24px; border-bottom:1px solid var(--border);
+  }
+  .brand-kicker{
+    display:flex; align-items:center; gap:8px; font-size:12px; letter-spacing:1.5px;
+    text-transform:uppercase; color:var(--gold); font-weight:700; margin-bottom:10px;
+  }
+  .brand-kicker .dot{width:8px; height:8px; border-radius:50%; background:var(--gold);}
+  h1{font-size:30px; font-weight:800; color:var(--white); margin-bottom:6px; letter-spacing:-0.01em;}
+  .subtitle{color:var(--lilac); font-size:14.5px; max-width:640px;}
+  .header-badge{
+    background:rgba(231,182,113,0.1); border:1px solid rgba(231,182,113,0.35);
+    color:var(--gold); font-size:12px; font-weight:600; padding:8px 14px;
+    border-radius:100px; white-space:nowrap;
+  }
+
+  /* Tabs */
+  .tabs{display:flex; gap:8px; margin-bottom:26px; flex-wrap:wrap;}
+  .tab-btn{
+    background:var(--card); border:1px solid var(--border); color:var(--text-dim);
+    padding:12px 20px; border-radius:10px; cursor:pointer; font-family:inherit;
+    font-size:14px; font-weight:600; transition:all .15s; display:flex; align-items:center; gap:8px;
+  }
+  .tab-btn .num{
+    width:20px; height:20px; border-radius:50%; background:rgba(155,170,227,0.15);
+    display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--text-dim);
+  }
+  .tab-btn:hover{border-color:var(--purple);}
+  .tab-btn.active{background:linear-gradient(135deg, var(--purple), var(--purple-deep)); color:var(--white); border-color:var(--purple);}
+  .tab-btn.active .num{background:rgba(255,255,255,0.25); color:var(--white);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block; animation:fade .2s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+  .section-title{
+    font-size:20px; font-weight:800; color:var(--white); margin:30px 0 6px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .section-title .bullet{width:8px; height:8px; border-radius:50%; background:var(--gold); flex-shrink:0;}
+  .section-desc{color:var(--text-dim); font-size:13.5px; margin-bottom:16px; max-width:780px;}
+
+  .card{
+    background:linear-gradient(180deg, var(--card) 0%, var(--card-2) 100%);
+    border:1px solid var(--border); border-radius:14px; padding:22px; margin-bottom:16px;
+  }
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;}
+  @media (max-width:900px){ .grid2, .grid3{grid-template-columns:1fr;} }
+
+  /* segment toggle */
+  .seg-toggle{display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;}
+  .seg-btn{
+    flex:1; min-width:220px; background:var(--card); border:1px solid var(--border);
+    padding:14px 16px; border-radius:12px; cursor:pointer; text-align:left; color:var(--text);
+    font-family:inherit; transition:all .15s;
+  }
+  .seg-btn strong{display:block; font-size:14px; margin-bottom:3px; color:var(--white);}
+  .seg-btn span{font-size:12px; color:var(--text-dim);}
+  .seg-btn.active{border-color:var(--gold); background:rgba(231,182,113,0.08); box-shadow:0 0 0 1px var(--gold) inset;}
+  .seg-btn.active strong{color:var(--gold);}
+
+  .field-label{font-size:11.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-dim); margin-bottom:6px; display:block; font-weight:700;}
+  input[type=text], input[type=number], input[type=date], textarea, select{
+    width:100%; background:var(--navy-2); border:1px solid var(--border); color:var(--text);
+    padding:10px 12px; border-radius:8px; font-family:inherit; font-size:13.5px;
+  }
+  textarea{min-height:70px; resize:vertical;}
+  input:focus, textarea:focus, select:focus{outline:none; border-color:var(--gold);}
+
+  /* scorecard dimension */
+  .dim-card{border-left:3px solid var(--purple);}
+  .dim-head{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:8px;}
+  .dim-name{font-size:15px; font-weight:700; color:var(--white);}
+  .dim-weight{font-size:11px; background:rgba(79,81,218,0.25); color:var(--lilac); padding:4px 10px; border-radius:100px; white-space:nowrap; font-weight:700;}
+  .dim-question{font-size:13px; color:var(--lilac); margin-bottom:14px; font-style:italic;}
+  .score-row{display:flex; gap:8px;}
+  .score-btn{
+    flex:1; padding:10px 6px; border-radius:8px; border:1px solid var(--border); background:var(--navy-2);
+    color:var(--text-dim); cursor:pointer; font-family:inherit; font-size:12.5px; text-align:center; font-weight:700;
+    transition:all .12s;
+  }
+  .score-btn small{display:block; font-weight:400; font-size:10px; margin-top:2px; opacity:.85;}
+  .score-btn:hover{border-color:var(--gold);}
+  .score-btn.active{background:linear-gradient(135deg, var(--gold), #c9924e); color:var(--navy); border-color:var(--gold);}
+
+  .redflag-item{
+    display:flex; align-items:flex-start; gap:10px; padding:12px; border-radius:10px;
+    background:var(--navy-2); border:1px solid var(--border); margin-bottom:8px; cursor:pointer;
+  }
+  .redflag-item input{width:18px; height:18px; margin-top:2px; accent-color:var(--coral); flex-shrink:0;}
+  .redflag-item.checked{border-color:var(--coral); background:rgba(227,104,122,0.1);}
+  .redflag-text{font-size:13px; color:var(--text);}
+
+  .result-panel{
+    border:1px solid var(--gold); border-radius:16px; padding:28px;
+    background:linear-gradient(135deg, rgba(231,182,113,0.08), rgba(79,81,218,0.08));
+    text-align:center; margin-top:22px;
+  }
+  .result-label{font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:10px;}
+  .result-score{font-size:52px; font-weight:800; line-height:1; margin-bottom:8px;}
+  .result-verdict{
+    display:inline-block; padding:8px 20px; border-radius:100px; font-weight:800; font-size:14px;
+    letter-spacing:0.3px; margin-bottom:14px;
+  }
+  .verdict-escalable{background:rgba(69,229,145,0.15); color:var(--mint); border:1px solid var(--mint);}
+  .verdict-condicional{background:rgba(231,182,113,0.15); color:var(--gold); border:1px solid var(--gold);}
+  .verdict-no{background:rgba(227,104,122,0.15); color:var(--coral); border:1px solid var(--coral);}
+  .result-guidance{color:var(--text-dim); font-size:13.5px; max-width:560px; margin:0 auto;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{text-align:left; padding:10px 12px; color:var(--gold); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border);}
+  td{padding:11px 12px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  .ref-table{background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden;}
+
+  .checklist-item{display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13.5px;}
+  .checklist-item:last-child{border-bottom:none;}
+  .checklist-item input{width:17px; height:17px; margin-top:2px; accent-color:var(--mint); flex-shrink:0;}
+
+  .btn{
+    background:linear-gradient(135deg, var(--gold), #c9924e); color:var(--navy); border:none;
+    padding:12px 22px; border-radius:10px; cursor:pointer; font-family:inherit; font-weight:700; font-size:13.5px;
+  }
+  .btn.secondary{background:transparent; border:1px solid var(--border); color:var(--text-dim);}
+  .btn:hover{filter:brightness(1.08);}
+
+  .gate-box{
+    display:flex; align-items:center; gap:14px; padding:16px; border-radius:12px; margin-top:18px;
+    border:1px solid var(--border); background:var(--navy-2);
+  }
+  .gate-status{font-weight:800; font-size:14px; padding:6px 14px; border-radius:100px;}
+  .gate-open{background:rgba(69,229,145,0.15); color:var(--mint); border:1px solid var(--mint);}
+  .gate-closed{background:rgba(227,104,122,0.12); color:var(--coral); border:1px solid var(--coral);}
+
+  .summary-box{
+    background:var(--navy-2); border:1px solid var(--border); border-radius:12px; padding:18px;
+    font-family: 'Noto Sans', monospace; font-size:12.5px; white-space:pre-wrap; color:var(--text-dim); line-height:1.7;
+    max-height:340px; overflow-y:auto;
+  }
+
+  /* calculator */
+  .stage-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .stage-title{font-size:16px; font-weight:800; color:var(--white); display:flex; align-items:center; gap:8px;}
+  .stage-pill{font-size:10.5px; padding:3px 10px; border-radius:100px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;}
+  .pill-piloto{background:rgba(155,170,227,0.18); color:var(--lilac);}
+  .pill-recurrente{background:rgba(57,194,218,0.15); color:var(--cyan);}
+  .pill-expansion{background:rgba(69,229,145,0.15); color:var(--mint);}
+  .channel-row{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .channel-row label{flex:1; font-size:12px; color:var(--text-dim);}
+  .channel-row input{width:90px; text-align:right;}
+  .stage-price{
+    text-align:center; padding:14px 8px; border-top:1px solid var(--border); margin-top:12px;
+  }
+  .stage-price .amt{font-size:26px; font-weight:800; color:var(--gold);}
+  .stage-price.free .amt{color:var(--mint);}
+  .stage-price .sub{font-size:11px; color:var(--text-dim); margin-top:4px;}
+  .admin-only{display:none;}
+  body.admin .admin-only{display:block;}
+  body.admin .admin-inline{display:inline;}
+  .toggle-row{display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-bottom:18px;}
+  .mode-toggle{
+    background:var(--card); border:1px solid var(--border); color:var(--text-dim);
+    padding:8px 16px; border-radius:100px; cursor:pointer; font-family:inherit; font-size:12px; font-weight:700;
+  }
+  .mode-toggle.on{border-color:var(--gold); color:var(--gold);}
+  .cap-warning{
+    display:none; background:rgba(227,104,122,0.1); border:1px solid var(--coral); color:var(--coral);
+    padding:10px 12px; border-radius:8px; font-size:12px; margin-top:10px;
+  }
+  .cap-warning.show{display:block;}
+  .footnote{color:var(--text-dim); font-size:11.5px; text-align:center; margin-top:30px; padding-top:18px; border-top:1px solid var(--border);}
+  .kicker-gold{color:var(--gold); font-weight:700;}
+
+/* ============ TEMA CLARO CON CONTRASTE (canvas gris suave + bloques blancos con sombra) ============ */
+:root{
+  --navy:#EAEDF4; --navy-2:#FFFFFF; --navy-muted:#23233F;
+  --purple:#2A2BA1; --purple-vivid:#2A2BA1; --purple-deep:#22239E;
+  --lilac:#5B5B7A; --blue-lilac:#2A2BA1;
+  --cyan:#1F7E91; --mint:#1E7A3B; --coral:#C0304A; --gold:#E7B671;
+  --card:#FFFFFF; --card-2:#FFFFFF; --border:rgba(35,35,63,0.12);
+  --text:#23233F; --text-dim:#5B5B7A;
+}
+body{ background:#EAEDF4; color:#23233F; }
+h1, .section-title, .dim-name, .seg-btn strong, .stage-title, .result-score{ color:#23233F; }
+.subtitle, .section-desc, .dim-question, .field-label{ color:#5B5B7A; }
+.brand-kicker{ color:#2A2BA1; }
+.brand-kicker .dot, .section-title .bullet{ background:#E7B671; }
+.header-badge{ background:#FFFFFF; border:1px solid rgba(42,43,161,0.25); color:#2A2BA1; box-shadow:0 1px 4px rgba(35,35,63,0.06); }
+th{ color:#2A2BA1; }
+.kicker-gold{ color:#2A2BA1; }
+header{ border-bottom:1px solid #DCE1EC; }
+.card{ background:#FFFFFF; border:1px solid #E3E7F1; box-shadow:0 3px 14px rgba(35,35,63,0.08); }
+.ref-table{ background:#FFFFFF; border:1px solid #E3E7F1; box-shadow:0 3px 14px rgba(35,35,63,0.08); }
+.gate-box, .summary-box, .redflag-item{ background:#FFFFFF; border:1px solid #E3E7F1; box-shadow:0 1px 6px rgba(35,35,63,0.05); }
+.score-btn{ background:#FFFFFF; border:1px solid #E3E7F1; color:#5B5B7A; }
+.tab-btn{ background:#FFFFFF; border:1px solid #E3E7F1; box-shadow:0 1px 6px rgba(35,35,63,0.05); color:#5B5B7A; }
+.tab-btn .num{ background:rgba(42,43,161,0.10); color:#5B5B7A; }
+.tab-btn.active{ background:linear-gradient(135deg,#2A2BA1,#22239E); color:#FFFFFF; border-color:#2A2BA1; }
+.tab-btn.active .num{ background:rgba(255,255,255,0.25); color:#FFFFFF; }
+.seg-btn{ background:#FFFFFF; border:1px solid #E3E7F1; box-shadow:0 1px 6px rgba(35,35,63,0.05); }
+.seg-btn.active{ border-color:#E7B671; background:#FFFDF6; box-shadow:0 0 0 1px #E7B671 inset, 0 2px 12px rgba(231,182,113,0.20); }
+.seg-btn.active strong{ color:#9A6B12; }
+.btn{ color:#23233F; }
+.score-btn.active{ color:#23233F; }
+.dim-card{ border-left:3px solid #2A2BA1; }
+.dim-weight{ background:rgba(42,43,161,0.12); color:#2A2BA1; }
+.stage-price .amt{ color:#23233F; }
+.stage-price.free .amt{ color:#1E7A3B; }
+.pill-piloto{ background:rgba(42,43,161,0.10); color:#2A2BA1; }
+.pill-recurrente{ background:rgba(31,126,145,0.12); color:#1F7E91; }
+.pill-expansion{ background:rgba(30,122,59,0.12); color:#1E7A3B; }
+.verdict-escalable, .gate-open{ background:rgba(30,122,59,0.10); color:#1E7A3B; border:1px solid #1E7A3B; }
+.verdict-condicional{ background:rgba(231,182,113,0.15); color:#9A6B12; border:1px solid #E7B671; }
+.verdict-no, .gate-closed{ background:rgba(192,48,74,0.10); color:#C0304A; border:1px solid #C0304A; }
+.redflag-item.checked{ border-color:#C0304A; background:#FDECEF; }
+.result-panel{ background:#FFFFFF; border:1px solid #E7B671; box-shadow:0 4px 20px rgba(35,35,63,0.10); }
+.mode-toggle{ background:#FFFFFF; border:1px solid #E3E7F1; color:#5B5B7A; }
+.mode-toggle.on{ border-color:#E7B671; color:#9A6B12; }
+
+input[type=text], input[type=number], input[type=date], textarea, select{
+  background:#FFFFFF !important; color:#2A2BA1 !important;
+  border:1px solid #D7DCEA !important; font-weight:600;
+}
+input[type=text]::placeholder, input[type=number]::placeholder, textarea::placeholder{ color:#AEB4CC !important; opacity:1; font-weight:400; }
+input:focus, textarea:focus, select:focus{ border-color:var(--gold) !important; box-shadow:0 0 0 2px rgba(231,182,113,0.22); }
+select option{ background:#FFFFFF; color:#2A2BA1; }
+
+</style>
+</head>
+<body>
+<a href="index.html" style="position:fixed;top:14px;left:14px;z-index:9999;background:#010D47;color:#fff;text-decoration:none;font-family:'Segoe UI',Arial,sans-serif;font-size:12.5px;font-weight:600;padding:8px 15px;border-radius:20px;border:1px solid #e7b670;box-shadow:0 2px 10px rgba(0,0,0,.25)">&larr; Inicio</a>
+
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="brand-kicker"><span class="dot"></span>SimpliRoute · ADA Sales Enablement · Pilar 3</div>
+      <h1>Kit de Definición de Pilotos de ADA</h1>
+      <p class="subtitle">Scorecard de escalabilidad + plantilla de T&C del piloto. Documento vivo — úsalo antes de comprometer alcance o precio con un prospecto.</p>
+    </div>
+    <div class="header-badge">🔒 Uso interno</div>
+  </header>
+<div style="background:#F0F6FE;border-left:4px solid #2A2BA1;border-radius:10px;padding:14px 18px;margin-bottom:16px;box-shadow:0 2px 10px rgba(35,35,63,0.05);"><div style="font-weight:800;color:#2A2BA1;font-size:12.5px;letter-spacing:.5px;margin-bottom:6px;">CÓMO COTIZAR CRÉDITOS · DOS HERRAMIENTAS SEGÚN EL CAMINO DE VENTA</div><div style="color:#33344F;font-size:13px;line-height:1.55;"><b style="color:#2A2BA1;">Bundle con créditos gratuitos</b> (CORE + Suite IA + TMS): usa la <b>Calculadora de Pricing</b> <a href="https://docs.google.com/spreadsheets/d/1yFBgCDM_56NlZp5CQ5wvgKYIjcxqyTtAQBlD6It2fxo/edit?usp=sharing" target="_blank" rel="noopener noreferrer">(Google Sheet)</a>. Los créditos ahora consumen por <b>tres canales</b>: llamadas, WhatsApp <i>(por mensaje)</i> y <b>Ada Chat</b> (resoluciones). · <b style="color:#2A2BA1;">ADA Standalone (sin TMS)</b>: usa el <a href="https://gemini.google.com/gem/1uokQLGiYwxS_JLdKUb3hzgy6MxLZFAqj?usp=sharing" target="_blank" rel="noopener noreferrer">Gem</a> <b>“Consultor planes 2.0 — precio promocional”</b>, que estima créditos por operación (tiers por nº de vehículos, 15 créditos por vehículo/mes, mínimo 3 vehículos). Precios y consumo de créditos son de <b>penetración, válidos ago–sep 2026</b>.</div></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="scorecard"><span class="num">1</span> Scorecard de escalabilidad</button>
+    <button class="tab-btn" data-tab="tyc"><span class="num">2</span> Términos &amp; condiciones del piloto</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;margin:10px 0 2px;">
+    <span style="font-size:12px;color:#5B5B7A;">Vista:</span>
+    <button class="mode-toggle" id="mode-toggle">👁️ Vista cliente</button>
+  </div>
+
+  <!-- ============ TAB 1: SCORECARD ============ -->
+  <div class="tab-panel active" id="tab-scorecard">
+
+    <div class="section-title"><span class="bullet"></span>Segmento del prospecto</div>
+    <p class="section-desc">Las preguntas del scorecard cambian según el segmento. Segmento 1 son cuentas que encajan en un SKU pre-empaquetado (flujo estándar, sin desarrollo a medida); Segmento 2 son cuentas corporativas que requieren implementación a medida sobre su stack (ERP/TMS propio).</p>
+    <div class="seg-toggle">
+      <button class="seg-btn active" data-seg="1"><strong>Segmento 1 — Pre-empaquetado</strong><span>SKU estándar, sin integración compleja, activación rápida sobre data nativa de SimpliRoute.</span></button>
+      <button class="seg-btn" data-seg="2"><strong>Segmento 2 — Corporativo a medida</strong><span>Implementación sobre ERP/TMS del cliente, contrato pagado desde el día 1, 8-10 semanas.</span></button>
+    </div>
+
+    <div class="card">
+      <label class="field-label">Prospecto / Cuenta</label>
+      <input type="text" id="sc-client" placeholder="Ej. Transportes Ejemplo S.A.">
+    </div>
+
+    <div class="section-title"><span class="bullet"></span>Dimensiones del scorecard</div>
+    <p class="section-desc">Puntúa cada dimensión de 0 (ausente / red flag) a 3 (ideal). El puntaje ponderado determina el veredicto.</p>
+
+    <div id="dimensions"></div>
+
+    <div class="section-title"><span class="bullet"></span>Red flags — descalificadores automáticos</div>
+    <p class="section-desc">Si marcas cualquiera de estos, el prospecto queda descalificado sin importar el puntaje ponderado.</p>
+    <div id="redflags"></div>
+
+    <div class="result-panel">
+      <div class="result-label">Puntaje ponderado</div>
+      <div class="result-score" id="sc-score">0%</div>
+      <div class="result-verdict" id="sc-verdict">Completa el scorecard</div>
+      <div class="result-guidance" id="sc-guidance">Puntúa las 5 dimensiones para obtener el veredicto de escalabilidad.</div>
+    </div>
+
+    <div class="section-title"><span class="bullet"></span>Referencia rápida — piloto escalable vs. estancado</div>
+    <div class="ref-table">
+      <table>
+        <thead><tr><th>Criterio</th><th>Piloto ESCALABLE</th><th>Piloto ESTANCADO</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Alcance</strong></td><td>Acotado — ej. solo el proceso interno de pre-despacho, sin tocar la app de choferes al inicio.</td><td>Piden integraciones complejas ya desde la fase piloto.</td></tr>
+          <tr><td><strong>Métrica de éxito</strong></td><td>El cliente define el KPI de antemano y se compromete con él (ej. % de reducción de exceso de tiempo).</td><td>No hay métrica de éxito definida.</td></tr>
+          <tr><td><strong>Sponsor</strong></td><td>Acceso directo al Economic Buyer, con presupuesto.</td><td>Solo contacto operativo, sin acceso a quien decide.</td></tr>
+          <tr><td><strong>Datos</strong></td><td>Data limpia en SimpliRoute o APIs/webhooks del ERP-TMS habilitados.</td><td>TI bloquea accesos o la data no existe / está sucia.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ============ TAB 2: T&C ============ -->
+  <div class="tab-panel" id="tab-tyc">
+
+    <div class="section-title"><span class="bullet"></span>Estructura base del piloto</div>
+    <p class="section-desc">Todo piloto debe fijar por escrito estos cuatro componentes antes del kickoff — sin excepción, sin importar el segmento.</p>
+    <div class="grid2">
+      <div class="card">
+        <label class="field-label">1 · Alcance (flujos / agentes que se activan — limitado y explícito)</label>
+        <textarea id="tc-alcance" placeholder="Ej. Solo agente de sobre-estadía, zona CDMX Norte, sin tocar la app de choferes."></textarea>
+      </div>
+      <div class="card">
+        <label class="field-label">2 · Duración</label>
+        <div style="display:flex; gap:10px;">
+          <div style="flex:1;"><label class="field-label" style="margin-top:0;">Inicio</label><input type="date" id="tc-fecha-inicio"></div>
+          <div style="flex:1;"><label class="field-label" style="margin-top:0;">Fin (máx. recomendado: 4 semanas)</label><input type="date" id="tc-fecha-fin"></div>
+        </div>
+        <p style="font-size:12px; color:var(--text-dim); margin-top:10px;">Política interna: piloto <strong class="kicker-gold">sin costo</strong>, acotado a <strong class="kicker-gold">máximo 4 semanas</strong> y a un alcance muy corto (1 caso de uso / 1 zona). Checkpoints semanales obligatorios.</p>
+      </div>
+      <div class="card">
+        <label class="field-label">3 · Rol de las partes — qué entrega SimpliRoute</label>
+        <textarea id="tc-rol-sr" placeholder="Ej. SR monta y configura el agente, dashboard de seguimiento."></textarea>
+      </div>
+      <div class="card">
+        <label class="field-label">3 · Rol de las partes — qué entrega el cliente</label>
+        <textarea id="tc-rol-cliente" placeholder="Ej. Cliente envía Excel exportado de su ERP cada 30 min (marcha blanca, sin integración)."></textarea>
+      </div>
+      <div class="card">
+        <label class="field-label">4 · Criterio de éxito (KPI, definido por el CLIENTE — no por SimpliRoute)</label>
+        <textarea id="tc-kpi" placeholder="Ej. Reducir el tiempo de contacto de sobre-estadía en 30% durante las 4 semanas."></textarea>
+      </div>
+      <div class="card">
+        <label class="field-label">Bolsa de créditos del piloto (nunca ilimitado)</label>
+        <div class="field-row" style="display:flex; gap:8px;">
+          <input type="number" id="tc-bolsa" min="0" step="10" placeholder="Ej. 300" value="300">
+          <span style="background:var(--navy-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:12px; color:var(--text-dim); white-space:nowrap;">unidades totales</span>
+        </div>
+        <p style="font-size:11.5px; color:var(--text-dim); margin-top:8px;">Este valor define la bolsa de créditos del piloto — nunca ilimitado; te ayuda a no prometer más de lo acordado.</p>
+      </div>
+    </div>
+
+    <div class="section-title"><span class="bullet"></span>La "puerta de producción"</div>
+    <p class="section-desc">Un piloto solo gradúa a producción cuando se cumplen <strong>simultáneamente</strong> estas 4 condiciones. El gate es un disparador contractual: al cumplirse, activa automáticamente el contrato comercial.</p>
+    <div class="card">
+      <div id="gate-checklist"></div>
+      <div class="gate-box">
+        <span>Estado de la puerta de producción:</span>
+        <span class="gate-status gate-closed" id="gate-status">Cerrada — faltan condiciones</span>
+      </div>
+    </div>
+
+    <div class="section-title"><span class="bullet"></span>T&C por segmento — referencia</div>
+    <div class="ref-table" style="margin-bottom:20px;">
+      <table>
+        <thead><tr><th>Componente</th><th>Segmento 1 — Pre-empaquetado (SKU estándar)</th><th>Segmento 2 — Corporativo a medida</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Precio del piloto</strong></td><td>Generalmente sin costo de setup (gratuito o simbólico, para demostrar valor).</td><td>Contrato firmado <strong>pre-piloto y pagado desde el día 1</strong> (ej. Mercasid: Plan Starter $4.000 USD/mes).</td></tr>
+          <tr><td><strong>Límites de uso</strong></td><td>Con límite de minutos/créditos — <strong>nunca ilimitado</strong> (Polpaico rechazó $1.000 USD/mes ilimitado).</td><td>Alcance de implementación definido; 8-10 semanas de implementación. Incluye HH de consultoría / FDE.</td></tr>
+          <tr><td><strong>Integración</strong></td><td>Nula — se usa la data nativa del TMS de SimpliRoute.</td><td>Modo "marcha blanca": arranca manual o con integraciones de baja fricción (CSV/Excel, o el supervisor disparando el flujo a mano) <strong>antes</strong> de construir la integración costosa al ERP.</td></tr>
+          <tr><td><strong>Compromiso contractual</strong></td><td>Bajo — piloto acotado para expansión en cuenta existente.</td><td>Alto — contrato pagado desde el día 1, con alcance definido: evita el "piloto eterno gratis".</td></tr>
+          <tr><td><strong>On-site</strong></td><td>No aplica típicamente.</td><td>On-site como servicio pagado.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title"><span class="bullet"></span>Aprendizajes reales → cláusula recomendada</div>
+    <div class="ref-table" style="margin-bottom:20px;">
+      <table>
+        <thead><tr><th>Aprendizaje</th><th>Modo de falla que previene</th><th>Cláusula recomendada</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Polpaico</strong></td><td>Rechazo comercial por cobrar "minutos de IA ilimitados"; piloto sin métrica clara porque SR impuso el KPI.</td><td>Cobrar mediante créditos/bolsas acotadas (nunca ilimitado). El KPI de éxito lo define y se compromete el <strong>cliente</strong>, no SR.</td></tr>
+          <tr><td><strong>Traza / Dipisa / Bluexpress</strong></td><td>Integrar profundamente el TMS externo (OfficeTrack, NetSuite) durante el piloto — costo y fricción prematuros.</td><td>Piloto con triggers manuales o reportes CSV (marcha blanca). La integración técnica se construye recién en Fase 2, solo si la interacción humana funcionó.</td></tr>
+          <tr><td><strong>Mercasid</strong></td><td>El "piloto eterno gratis" sin compromiso ni presupuesto.</td><td>Contrato pagado desde el día 1, con alcance de implementación definido (solo Segmento 2).</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title"><span class="bullet"></span>Checklist de cláusulas sugeridas</div>
+    <div class="card" id="clause-checklist"></div>
+
+    <div class="section-title"><span class="bullet"></span>Resumen para copiar a la propuesta</div>
+    <p class="section-desc">Se arma automáticamente con lo que completaste arriba.</p>
+    <div class="card">
+      <div class="summary-box" id="tc-summary">Completa los campos de arriba para generar el resumen.</div>
+      <div style="margin-top:14px; display:flex; gap:10px;">
+        <button class="btn" id="copy-summary">Copiar resumen</button>
+        <span id="copy-feedback" style="align-self:center; font-size:12px; color:var(--mint); display:none;">Copiado ✓</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ TAB 3: CALCULADORA ============ -->
+
+  <div class="footnote">
+    Documento vivo — Kit de Definición de Pilotos de ADA ADA · Pilar 3 de Sales Enablement · SimpliRoute<br>
+    Fuentes: scorecard y T&C (framework comercial interno, discovery real de cuentas), para cotizar créditos: Calculadora de Pricing (Bundle) y Gem "Consultor planes 2.0" (Standalone).
+  </div>
+
+</div>
+
+<script>
+/* ===================== DATA ===================== */
+const DIMENSIONS = [
+  {
+    id: 'volumen',
+    name: 'Volumen / Dolor',
+    weight: 25,
+    q: {
+      1: '¿Cuántos incidentes manuales gestionan al día? ¿Cuánto cuesta cada entrega fallida o minuto de inactividad?',
+      2: '¿Cuál es el dolor estructural (multas por compliance, retención de clientes de alto LTV) y su costo?'
+    },
+    anchors: ['Sin cuantificar / dolor vago', 'Mencionado, sin números', 'Incidencias/mes estimadas', 'Incidencias + costo confirmado']
+  },
+  {
+    id: 'datos',
+    name: 'Viabilidad técnica (acceso a datos)',
+    weight: 20,
+    q: {
+      1: '¿Tienen la data limpia en SimpliRoute (direcciones, check-in)?',
+      2: '¿Tienen APIs abiertas de su ERP/TMS (SAP OData, webhooks)? ¿TI habilita el acceso?'
+    },
+    anchors: ['Sin fuente de datos / TI bloquea', 'Fuente ajena, acceso sin confirmar', 'Fuente ajena, acceso validado', 'Data limpia en SR o API habilitada']
+  },
+  {
+    id: 'sponsor',
+    name: 'Sponsor / Economic Buyer',
+    weight: 20,
+    q: {
+      1: '¿Tenemos acceso al Economic Buyer (quien maneja presupuesto) o solo al operador?',
+      2: '¿Hay sponsor de Transformación Digital / CIO-COO con presupuesto formal de desarrollo?'
+    },
+    anchors: ['Sin sponsor identificado', 'Solo contacto operativo', 'Sponsor con influencia, sin presupuesto', 'Economic Buyer con presupuesto confirmado']
+  },
+  {
+    id: 'expansion',
+    name: 'Potencial de expansión',
+    weight: 15,
+    q: {
+      1: '¿El caso se replica a más flujos/cuentas/geografías?',
+      2: '¿La orquestación se extiende a más sistemas/procesos (F1–F7) o filiales?'
+    },
+    anchors: ['Caso aislado, sin roadmap', 'Posible pero no mencionado', 'Cliente sugiere más casos', 'Roadmap claro a más flujos/cuentas']
+  },
+  {
+    id: 'alcance-kpi',
+    name: 'Alcance acotado + KPI acordado',
+    weight: 20,
+    q: {
+      1: '¿El alcance es acotado (ej. solo pre-despacho) y el cliente definió el KPI de éxito?',
+      2: '¿Aceptan marcha blanca con alcance limitado y un KPI de éxito comprometido por el cliente?'
+    },
+    anchors: ['Alcance abierto, sin KPI', 'Alcance amplio, KPI vago', 'Alcance acotado, KPI a definir', 'Alcance acotado + KPI del cliente, comprometido']
+  },
+];
+
+const REDFLAGS = [
+  'Expectativa de customización gratis: esperan integraciones profundas sin contrato firmado ni pago de setup.',
+  'Flota/volumen insuficiente: menos de 30 vehículos (umbral a validar por vertical).',
+  'Dolor comercial vs. logístico: piden a ADA para generar leads / vender más, en vez de resolver operaciones.',
+  'Falta de acceso a datos: TI del cliente bloquea APIs/webhooks, impidiendo que ADA tenga contexto.',
+  'Sin sponsor / sin Economic Buyer identificado.',
+  'Sin métrica de éxito acordada por el cliente.',
+];
+
+const GATE_CONDITIONS = [
+  'KPI acordado y ALCANZADO: la métrica de éxito la definió el cliente de antemano y se cumplió en el periodo del piloto.',
+  'Sponsor confirmado: existe acceso al Economic Buyer que maneja el presupuesto, no solo al operador.',
+  'Viabilidad técnica confirmada: la data/integración necesaria para operar en producción existe y es accesible.',
+  'Alcance de producción definido: qué flujos se expanden y a qué cuentas/geografías se replica.',
+];
+
+const CLAUSES = [
+  'Alcance acotado por escrito: flujos/agentes específicos que se activan (limitado y explícito).',
+  'KPI de éxito definido por el CLIENTE y aceptado por ambas partes antes del kickoff.',
+  'Límite de créditos/minutos (bolsa acotada) — nunca uso ilimitado.',
+  'Marcha blanca antes de integración: triggers manuales / CSV-Excel en el piloto; integración al ERP recién en Fase 2.',
+  'Rol de las partes y entregables de datos: qué monta SimpliRoute y qué entrega el cliente (formato y frecuencia).',
+  'Cláusula de graduación a producción: al alcanzar el KPI acordado, se gatilla automáticamente el contrato comercial.',
+  'Solo Segmento 2: NRE/setup pagado desde el día 1 y on-site como servicio pagado; alcance de implementación con semanas y HH de consultoría/FDE.',
+];
+
+/* ===================== STATE ===================== */
+let currentSegment = 1;
+const scores = {};
+
+/* ===================== TABS ===================== */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ===================== SEGMENT TOGGLE ===================== */
+document.querySelectorAll('.seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSegment = parseInt(btn.dataset.seg);
+    renderDimensions();
+  });
+});
+
+/* ===================== RENDER DIMENSIONS ===================== */
+function renderDimensions() {
+  const container = document.getElementById('dimensions');
+  container.innerHTML = '';
+  DIMENSIONS.forEach(dim => {
+    const card = document.createElement('div');
+    card.className = 'card dim-card';
+    const currentVal = scores[dim.id] !== undefined ? scores[dim.id] : null;
+    card.innerHTML = `
+      <div class="dim-head">
+        <div class="dim-name">${dim.name}</div>
+        <div class="dim-weight">Peso ${dim.weight}%</div>
+      </div>
+      <div class="dim-question">${dim.q[currentSegment]}</div>
+      <div class="score-row">
+        ${[0,1,2,3].map(v => `<button class="score-btn ${currentVal===v?'active':''}" data-dim="${dim.id}" data-val="${v}">${v}<small>${dim.anchors[v]}</small></button>`).join('')}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+  container.querySelectorAll('.score-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dimId = btn.dataset.dim;
+      const val = parseInt(btn.dataset.val);
+      scores[dimId] = val;
+      renderDimensions();
+      calcScorecard();
+    });
+  });
+}
+
+/* ===================== RED FLAGS ===================== */
+const redflagState = new Set();
+function renderRedflags() {
+  const container = document.getElementById('redflags');
+  container.innerHTML = '';
+  REDFLAGS.forEach((text, i) => {
+    const item = document.createElement('label');
+    item.className = 'redflag-item';
+    item.innerHTML = `<input type="checkbox" data-idx="${i}"><span class="redflag-text">${text}</span>`;
+    container.appendChild(item);
+  });
+  container.querySelectorAll('input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const idx = cb.dataset.idx;
+      if (cb.checked) { redflagState.add(idx); cb.closest('.redflag-item').classList.add('checked'); }
+      else { redflagState.delete(idx); cb.closest('.redflag-item').classList.remove('checked'); }
+      calcScorecard();
+    });
+  });
+}
+
+/* ===================== CALC SCORECARD ===================== */
+function calcScorecard() {
+  let weighted = 0;
+  let answered = 0;
+  DIMENSIONS.forEach(dim => {
+    if (scores[dim.id] !== undefined) {
+      weighted += (scores[dim.id] / 3) * dim.weight;
+      answered++;
+    }
+  });
+  const pct = Math.round(weighted);
+  document.getElementById('sc-score').textContent = pct + '%';
+
+  const verdictEl = document.getElementById('sc-verdict');
+  const guidanceEl = document.getElementById('sc-guidance');
+  const scoreEl = document.getElementById('sc-score');
+
+  if (redflagState.size > 0) {
+    verdictEl.className = 'result-verdict verdict-no';
+    verdictEl.textContent = '🚫 Descalificado (red flag activo)';
+    guidanceEl.textContent = 'Hay al menos un red flag marcado — descalifica al prospecto sin importar el puntaje ponderado. Resuelve el red flag antes de continuar, o descarta / nutre la cuenta.';
+    scoreEl.style.color = 'var(--coral)';
+    return;
+  }
+
+  scoreEl.style.color = 'var(--white)';
+
+  if (answered < DIMENSIONS.length) {
+    verdictEl.className = 'result-verdict';
+    verdictEl.style.background = 'rgba(155,170,227,0.12)';
+    verdictEl.style.color = 'var(--lilac)';
+    verdictEl.style.border = '1px solid var(--border)';
+    verdictEl.textContent = `Faltan ${DIMENSIONS.length - answered} dimensiones por puntuar`;
+    guidanceEl.textContent = 'Completa todas las dimensiones para obtener el veredicto final.';
+    return;
+  }
+
+  if (pct >= 75) {
+    verdictEl.className = 'result-verdict verdict-escalable';
+    verdictEl.textContent = '✓ Escalable — avanzar a piloto';
+    guidanceEl.textContent = 'Cumple el umbral de escalabilidad. Pasa a la pestaña 2 para fijar T&C y el precio a escala desde el inicio.';
+  } else if (pct >= 50) {
+    verdictEl.className = 'result-verdict verdict-condicional';
+    verdictEl.textContent = '△ Condicional — cerrar brechas primero';
+    guidanceEl.textContent = 'Identifica qué dimensión pesa menos (sponsor, datos, alcance/KPI) y ciérrala en discovery antes de comprometer un piloto formal.';
+  } else {
+    verdictEl.className = 'result-verdict verdict-no';
+    verdictEl.textContent = '✗ No calificado — descartar o nutrir';
+    guidanceEl.textContent = 'Por debajo del 50%. No comprometas un piloto formal todavía — nutre la cuenta o descarta según prioridad de pipeline.';
+  }
+}
+
+/* ===================== TAB 2: T&C ===================== */
+function renderGateChecklist() {
+  const container = document.getElementById('gate-checklist');
+  container.innerHTML = '';
+  GATE_CONDITIONS.forEach((text, i) => {
+    const item = document.createElement('label');
+    item.className = 'checklist-item';
+    item.innerHTML = `<input type="checkbox" data-gate="${i}"><span>${text}</span>`;
+    container.appendChild(item);
+  });
+  container.querySelectorAll('input').forEach(cb => cb.addEventListener('change', updateGateStatus));
+}
+function updateGateStatus() {
+  const checked = document.querySelectorAll('#gate-checklist input:checked').length;
+  const total = GATE_CONDITIONS.length;
+  const statusEl = document.getElementById('gate-status');
+  if (checked === total) {
+    statusEl.className = 'gate-status gate-open';
+    statusEl.textContent = 'Abierta — se gatilla el contrato comercial';
+  } else {
+    statusEl.className = 'gate-status gate-closed';
+    statusEl.textContent = `Cerrada — ${total - checked} condición(es) pendiente(s)`;
+  }
+  buildSummary();
+}
+
+function renderClauseChecklist() {
+  const container = document.getElementById('clause-checklist');
+  container.innerHTML = '';
+  CLAUSES.forEach((text, i) => {
+    const item = document.createElement('label');
+    item.className = 'checklist-item';
+    item.innerHTML = `<input type="checkbox" data-clause="${i}" ${i===6 ? '' : ''}><span>${text}${i===6?' <em style="color:var(--text-dim)">(solo Segmento 2)</em>':''}</span>`;
+    container.appendChild(item);
+  });
+  container.querySelectorAll('input').forEach(cb => cb.addEventListener('change', buildSummary));
+}
+
+function buildSummary() {
+  const client = document.getElementById('sc-client').value || '[prospecto sin nombre]';
+  const alcance = document.getElementById('tc-alcance').value || '[sin definir]';
+  const inicio = document.getElementById('tc-fecha-inicio').value || '[fecha inicio]';
+  const fin = document.getElementById('tc-fecha-fin').value || '[fecha fin]';
+  const rolSR = document.getElementById('tc-rol-sr').value || '[sin definir]';
+  const rolCliente = document.getElementById('tc-rol-cliente').value || '[sin definir]';
+  const kpi = document.getElementById('tc-kpi').value || '[sin definir]';
+  const bolsa = document.getElementById('tc-bolsa').value || '0';
+  const gateChecked = document.querySelectorAll('#gate-checklist input:checked').length;
+  const clausesChecked = document.querySelectorAll('#clause-checklist input:checked').length;
+
+  const text = `TÉRMINOS Y CONDICIONES DEL PILOTO — ADA
+Prospecto: ${client}
+Segmento: ${currentSegment === 1 ? 'Segmento 1 — Pre-empaquetado (SKU estándar)' : 'Segmento 2 — Corporativo a medida'}
+
+1. ALCANCE
+${alcance}
+
+2. DURACIÓN
+${inicio} → ${fin}  (política interna: sin costo, máx. 4 semanas, alcance corto)
+
+3. ROL DE LAS PARTES
+SimpliRoute entrega: ${rolSR}
+Cliente entrega: ${rolCliente}
+
+4. CRITERIO DE ÉXITO (definido por el cliente)
+${kpi}
+
+BOLSA DE CRÉDITOS DEL PILOTO
+${bolsa} créditos (nunca ilimitado)
+
+PUERTA DE PRODUCCIÓN
+${gateChecked}/${GATE_CONDITIONS.length} condiciones cumplidas ${gateChecked === GATE_CONDITIONS.length ? '→ ABIERTA' : '→ CERRADA'}
+
+CLÁUSULAS INCLUIDAS
+${clausesChecked}/${CLAUSES.length} cláusulas del checklist marcadas como incluidas
+
+—
+Generado desde el Kit de Definición de Pilotos de ADA ADA · SimpliRoute`;
+
+  document.getElementById('tc-summary').textContent = text;
+}
+
+document.querySelectorAll('#tab-tyc input, #tab-tyc textarea, #sc-client').forEach(el => {
+  el.addEventListener('input', buildSummary);
+});
+
+document.getElementById('copy-summary').addEventListener('click', () => {
+  const text = document.getElementById('tc-summary').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const fb = document.getElementById('copy-feedback');
+    fb.style.display = 'inline';
+    setTimeout(() => fb.style.display = 'none', 1800);
+  }).catch(() => {});
+});
+
+/* ===================== TAB 3: CALCULATOR ===================== */
+const STAGES = [
+  { id:'piloto', label:'Piloto', pill:'pill-piloto', icon:'🧪', allowFree:true, defaults:{call:60, whatsapp:80, simplichat:100, platform:300} },
+  { id:'recurrente', label:'Recurrente (producción)', pill:'pill-recurrente', icon:'⚙️', allowFree:false, defaults:{call:300, whatsapp:500, simplichat:800, platform:1500} },
+  { id:'expansion', label:'Expansión (upsell)', pill:'pill-expansion', icon:'📈', allowFree:false, defaults:{call:600, whatsapp:1200, simplichat:1800, platform:3000} },
+];
+let promoOn = true;
+
+function renderStages() {
+  const container = document.getElementById('stages');
+  container.innerHTML = '';
+  STAGES.forEach(stage => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <div class="stage-header">
+        <div class="stage-title">${stage.icon} ${stage.label}</div>
+        <span class="stage-pill ${stage.pill}">${stage.id}</span>
+      </div>
+      ${stage.allowFree ? `
+      <label class="checklist-item" style="padding:6px 0;">
+        <input type="checkbox" id="free-${stage.id}" checked>
+        <span style="font-size:12.5px;">Sin costo (cortesía comercial del piloto)</span>
+      </label>` : ''}
+      <div style="margin-top:10px;">
+        <div class="channel-row"><label>📞 Llamadas (min)</label><input type="number" id="qty-${stage.id}-call" min="0" step="10" value="${stage.defaults.call}"></div>
+        <div class="channel-row"><label>💬 WhatsApp (msj.)</label><input type="number" id="qty-${stage.id}-whatsapp" min="0" step="10" value="${stage.defaults.whatsapp}"></div>
+        <div class="channel-row"><label>💬 Ada Chat (resol.)</label><input type="number" id="qty-${stage.id}-simplichat" min="0" step="10" value="${stage.defaults.simplichat}"></div>
+        <div class="channel-row"><label>⚙️ Eventos plataforma</label><input type="number" id="qty-${stage.id}-platform" min="0" step="50" value="${stage.defaults.platform}"></div>
+      </div>
+      <div class="stage-price" id="price-box-${stage.id}">
+        <div class="amt" id="price-${stage.id}">$0.00</div>
+        <div class="sub" id="sub-${stage.id}">—</div>
+      </div>
+      <div class="admin-only" style="font-size:11.5px; color:var(--text-dim); border-top:1px solid var(--border); padding-top:10px; margin-top:6px;">
+        Costo interno: <span id="cost-${stage.id}">$0.00</span> · Ganancia bruta: <span id="profit-${stage.id}">$0.00</span>
+      </div>
+      <div class="cap-warning" id="cap-warning-${stage.id}">⚠️ El consumo proyectado supera la bolsa de créditos definida en la pestaña 2.</div>
+    `;
+    container.appendChild(div);
+  });
+  container.querySelectorAll('input').forEach(inp => inp.addEventListener('input', calcAll));
+}
+
+function num(id) { const el = document.getElementById(id); return el ? (parseFloat(el.value) || 0) : 0; }
+const fmt = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function calcStage(stage) {
+  const unitCall = num('unit-call');
+  const unitWhatsapp = num('unit-whatsapp');
+  const unitSimplichat = num('unit-simplichat');
+  const unitPlatformEvent = num('unit-platform-event');
+  const unitPlatformChannel = num('unit-platform-channel');
+  const margin = num('margin');
+  const fixedCost = num('fixed-cost');
+  const structuralPct = num('structural-pct');
+  const discount = stage.id === 'piloto' ? 0 : num('discount');
+  const equiv = num('calc-tier') || 1.2;
+  const promoDiv = promoOn ? equiv : (equiv/3);   // descuento ago-sep: créditos rinden 3x (sin descuento se triplican)
+
+  const qCall = num(`qty-${stage.id}-call`);
+  const qWhatsapp = num(`qty-${stage.id}-whatsapp`);
+  const qSimplichat = num(`qty-${stage.id}-simplichat`);
+  const qPlatform = num(`qty-${stage.id}-platform`);
+
+  const channelsTotal = qCall + qWhatsapp + qSimplichat;
+  const totalUnits = channelsTotal + qPlatform;
+
+  const varCost = qCall * unitCall + qWhatsapp * unitWhatsapp + qSimplichat * unitSimplichat;
+  const gastoUSD = varCost;   // costo operativo de canales (llamadas + WhatsApp + Ada Chat)
+  const creditos = Math.ceil(gastoUSD / promoDiv);
+  const platformEventCost = qPlatform * unitPlatformEvent;
+  const platformChannelCost = channelsTotal > 0 ? channelsTotal * unitPlatformChannel : 0;
+  const subtotalVar = varCost + platformEventCost + platformChannelCost;
+
+  const structuralFee = fixedCost * (structuralPct / 100);
+  const totalCost = subtotalVar + structuralFee;
+
+  const marginFrac = (100 - margin) / 100;
+  const priceBase = marginFrac > 0 ? totalCost / marginFrac : 0;
+  const discountAmt = priceBase * (discount / 100);
+  let priceFinal = priceBase - discountAmt;
+
+  const isFree = stage.allowFree && document.getElementById(`free-${stage.id}`) && document.getElementById(`free-${stage.id}`).checked;
+  const listPrice = priceFinal;
+  if (isFree) priceFinal = 0;
+
+  const profit = priceFinal - totalCost;
+  const pricePerUnit = totalUnits > 0 ? listPrice / totalUnits : 0;
+
+  return { totalUnits, totalCost, priceFinal, listPrice, profit, pricePerUnit, isFree, channelsTotal, creditos, gastoUSD };
+}
+
+function calcAll() {
+  STAGES.forEach(stage => {
+    const r = calcStage(stage);
+    const priceEl = document.getElementById(`price-${stage.id}`);
+    const subEl = document.getElementById(`sub-${stage.id}`);
+    const boxEl = document.getElementById(`price-box-${stage.id}`);
+
+    const promoTxt = promoOn ? 'descuento ago–sep ON (×3)' : 'sin descuento';
+    priceEl.textContent = r.creditos.toLocaleString('en-US') + ' créditos/mes' + (r.isFree ? ' · piloto cortesía' : '');
+    subEl.innerHTML = `${promoTxt} · <span class="admin-inline">gasto operativo ${fmt(r.gastoUSD)}</span>`;
+    boxEl.classList.toggle('free', r.isFree);
+
+    const costEl = document.getElementById(`cost-${stage.id}`);
+    const profitEl = document.getElementById(`profit-${stage.id}`);
+    if (costEl) costEl.textContent = fmt(r.totalCost);
+    if (profitEl) profitEl.textContent = fmt(r.listPrice - r.totalCost);
+
+    if (stage.id === 'piloto') {
+      const bolsa = num('tc-bolsa');
+      const warnEl = document.getElementById('cap-warning-piloto');
+      if (warnEl) {
+        if (bolsa > 0 && r.creditos > bolsa) warnEl.classList.add('show');
+        else warnEl.classList.remove('show');
+      }
+    }
+  });
+}
+
+/* ===================== ADMIN / PUBLIC MODE ===================== */
+const modeToggle = document.getElementById('mode-toggle');
+function applyMode(isAdmin) {
+  document.body.classList.toggle('admin', isAdmin);
+  modeToggle.textContent = isAdmin ? '🔧 Vista interna (admin)' : '👁️ Vista cliente';
+  modeToggle.classList.toggle('on', isAdmin);
+}
+modeToggle.addEventListener('click', () => applyMode(!document.body.classList.contains('admin')));
+
+/* ===================== INIT ===================== */
+renderDimensions();
+renderRedflags();
+renderGateChecklist();
+renderClauseChecklist();
+calcScorecard();
+buildSummary();
+applyMode(false);
+</script>
+</body>
+</html>
