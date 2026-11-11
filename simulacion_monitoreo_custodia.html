@@ -1,0 +1,866 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Monitoreo de servicios con custodia</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: banda de marca arriba; abajo dos paneles: escenario + estado + registro de ejecución (izquierda) y WhatsApp (derecha).
+   Tema claro único y de alto contraste. Tokens SimpliRoute Apollo DS. */
+:root{
+  --ink:#0C0645; --brand:#4C3BEF; --brand-600:#2A16DA; --brand-soft:#F3F2FE; --brand-200:#D4D0FB;
+  --bg:#F4F4F7; --surface:#FFFFFF; --line:#DBDBE0; --line-soft:#E9E9EB;
+  --fg:#22242A; --muted:#55586C; --subtle:#73768C;
+  --ok:#00804A; --ok-soft:#E3FBEF; --warn:#7A5B00; --warn-soft:#FFF6D6; --err:#B3112A; --err-soft:#FDECEC;
+  --chat-bg:#ECEEF6; --bubble-out:#E6E3FF; --bubble-in:#FFFFFF;
+  --font:'Open Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'Roboto Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --r-sm:6px; --r-md:8px; --r-lg:12px;
+  --shadow:0 1px 3px rgba(34,36,42,.10),0 1px 2px rgba(34,36,42,.06);
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.5;display:flex;flex-direction:column;min-height:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+/* Banda */
+.band{background:var(--ink);color:#fff}
+.band-in{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.band img.logo{height:24px;width:auto;display:block}
+.band .sep{width:1px;height:28px;background:rgba(255,255,255,.25)}
+.band h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.band .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#C9C4FF;font-weight:600}
+.band .titles{display:flex;flex-direction:column;min-width:0}
+.band .spacer{flex:1}
+.badge-sim{font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:4px 10px;color:#fff;white-space:nowrap}
+.badge-sim.clock{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums}
+/* Grid */
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:16px;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.col{min-height:0;min-width:0;display:flex;flex-direction:column;gap:16px}
+.col>*{flex:none}
+.col>.log-card,.col>.chat{flex:1 0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);min-width:0}
+.card-h{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line-soft)}
+.card-h h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+.card-h .hint{margin-left:auto;font-size:12px;color:var(--muted)}
+.caps{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+/* Escenario */
+details.api{overflow:hidden}
+details.api summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 16px}
+details.api summary::-webkit-details-marker{display:none}
+details.api summary h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+details.api summary .chev{margin-left:auto;transition:transform .18s;color:var(--muted)}
+details.api[open] summary .chev{transform:rotate(180deg)}
+details.api[open] summary{border-bottom:1px solid var(--line-soft)}
+.api-pill{font-family:var(--mono);font-size:11px;font-weight:500;background:var(--brand-soft);color:var(--brand-600);border-radius:var(--r-sm);padding:2px 6px;white-space:nowrap}
+.api-pill.off{background:var(--line-soft);color:var(--muted)}
+.form{padding:14px 16px 16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f.w2{grid-column:span 2}.f.w4{grid-column:1/-1}
+.f label{font-size:12px;font-weight:600;color:var(--muted)}
+.f input,.f select{width:100%;min-width:0;border:1px solid var(--line);border-radius:var(--r-md);padding:7px 9px;background:#fff;font-size:13.5px}
+.f input:focus,.f select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(76,59,239,.18)}
+.f .desc{font-size:13px;color:var(--fg);padding:7px 0 0}
+.form-actions{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding-top:4px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:var(--r-md);padding:8px 14px;font-weight:600;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:var(--brand-soft)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:var(--brand-600)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--fg);cursor:pointer;margin-left:auto}
+.toggle input{accent-color:var(--brand);width:16px;height:16px}
+/* Estado (kv) */
+.visit{padding:14px 16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px}
+.kv{min-width:0}
+.kv .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.kv .v{font-weight:600;color:var(--fg);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;border-radius:4px;transition:background-color .6s}
+.kv .v.flash{background:var(--brand-200)}
+.tags{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;min-height:24px}
+.tag{font-family:var(--mono);font-size:11.5px;border-radius:999px;padding:2px 9px;border:1px solid var(--line);background:#fff;color:var(--muted)}
+.tag.ok{background:var(--ok-soft);border-color:#9FDDBF;color:var(--ok)}
+.tag.warn{background:var(--warn-soft);border-color:#EED48A;color:var(--warn)}
+.tag.err{background:var(--err-soft);border-color:#F3B3BC;color:var(--err)}
+.tag.brand{background:var(--brand-soft);border-color:var(--brand-200);color:var(--brand-600)}
+.prio{display:inline-block;border-radius:var(--r-sm);padding:0 8px}
+.prio.p1{background:var(--brand);color:#fff}
+.prio.low{background:var(--err);color:#fff}
+.meter{grid-column:1/-1;position:relative;height:8px;border-radius:999px;background:var(--line-soft);margin:2px 0 14px}
+.meter .fill{position:absolute;inset:0 auto 0 0;border-radius:999px;background:var(--brand);transition:width .6s}
+.meter.low .fill{background:var(--err)}
+.meter .tick{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.meter .tick i{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap}
+/* Registro */
+.log-card{min-height:320px;display:flex;flex-direction:column}
+.log{list-style:none;margin:0;padding:8px 16px 16px;overflow:auto;flex:1;min-height:0}
+.step{display:grid;grid-template-columns:46px 22px minmax(0,1fr);gap:0 10px;position:relative;padding-top:12px}
+.step .t{font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:1px;font-variant-numeric:tabular-nums}
+.step .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;background:var(--brand);position:relative;z-index:1}
+.step:not(:last-child) .rail{position:absolute;left:66px;top:34px;bottom:-12px;width:2px;background:var(--line-soft)}
+.step.ok .dot{background:var(--ok)}
+.step.warn .dot{background:var(--err)}
+.step.wait .dot{background:#C99400}
+.step.info .dot{background:#7F56D9}
+.step.end .dot{background:var(--ink)}
+.step .body{min-width:0;padding-bottom:2px}
+.step .row1{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.step .title{font-weight:700;color:var(--ink)}
+.chip{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-radius:4px;padding:1px 6px;background:var(--brand-soft);color:var(--brand-600)}
+.step.ok .chip{background:var(--ok-soft);color:var(--ok)}
+.step.warn .chip{background:var(--err-soft);color:var(--err)}
+.step.wait .chip{background:var(--warn-soft);color:var(--warn)}
+.step.info .chip{background:#F1EBFC;color:#5B34B5}
+.step.end .chip{background:var(--line-soft);color:var(--ink)}
+.step .d{color:var(--fg);font-size:13.5px;margin-top:1px;white-space:pre-line}
+.step pre{margin:8px 0 0;font-family:var(--mono);font-size:11.5px;line-height:1.5;background:#F7F7FB;border:1px solid var(--line-soft);border-radius:var(--r-md);padding:10px 12px;overflow:auto;max-height:240px;color:#2B2D5C}
+.step.live .dot{box-shadow:0 0 0 4px rgba(201,148,0,.25)}
+.empty{padding:20px 16px;color:var(--muted)}
+.empty ol{margin:8px 0 0;padding-left:20px}
+.empty li{margin:4px 0}
+.summary{margin:14px 0 0 56px;border:1px solid var(--brand-200);background:var(--brand-soft);border-radius:var(--r-md);padding:10px 12px;font-size:13.5px;color:var(--ink)}
+/* Chat */
+.chat{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
+.tabs{display:flex;gap:4px;padding:8px 8px 0;border-bottom:1px solid var(--line-soft);overflow-x:auto}
+.tab{border:0;background:transparent;padding:8px 12px 10px;font-weight:600;font-size:13px;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--brand)}
+.tab .n{min-width:18px;height:18px;border-radius:9px;background:var(--err);color:#fff;font-size:11px;display:inline-grid;place-items:center;padding:0 5px}
+.chat-h{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+.av{width:36px;height:36px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.chat-h .nm{font-weight:700;color:var(--ink);line-height:1.2}
+.chat-h .sub{font-size:12px;color:var(--muted)}
+.chat-h .wa{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--ok);background:var(--ok-soft);border-radius:999px;padding:3px 9px}
+.msgs{flex:1;min-height:220px;overflow:auto;background:var(--chat-bg);padding:14px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:84%;padding:8px 11px 6px;border-radius:12px;box-shadow:0 1px 1px rgba(34,36,42,.08);white-space:pre-wrap;overflow-wrap:anywhere;font-size:13.5px}
+.msg.out{align-self:flex-end;background:var(--bubble-out);border-bottom-right-radius:4px;color:var(--ink)}
+.msg.in{align-self:flex-start;background:var(--bubble-in);border-bottom-left-radius:4px}
+.msg strong{font-weight:700}
+.msg .meta{display:flex;align-items:center;gap:6px;justify-content:flex-end;font-size:11px;color:var(--muted);margin-top:3px}
+.msg.out .from{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--brand-600);margin-bottom:2px}
+.ada{width:20px;height:20px;flex:none;display:block;object-fit:contain}
+.sys{align-self:center;font-size:12px;color:var(--muted);background:rgba(255,255,255,.7);border-radius:999px;padding:3px 10px;text-align:center}
+.typing{align-self:flex-end;display:flex;align-items:center;gap:8px;background:var(--bubble-out);border-radius:12px;padding:7px 11px;font-size:12px;color:var(--brand-600);font-weight:600}
+.typing .ada{width:30px;height:30px}
+.dots{display:inline-flex;gap:3px}
+.dots i{width:5px;height:5px;border-radius:50%;background:var(--brand);opacity:.35;animation:b 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,100%{opacity:.25}50%{opacity:1}}
+/* Adjunto dentro de un mensaje de ADA (video, PDF, link) */
+.vid{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--brand-200);border-radius:var(--r-md);padding:8px 10px;margin:6px 0 2px;white-space:normal}
+.vid .play{width:30px;height:30px;border-radius:50%;background:var(--brand);display:grid;place-items:center;flex:none}
+.vid .play::after{content:"";border-left:9px solid #fff;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px}
+.vid b{display:block;font-size:13px;color:var(--ink)}
+.vid small{display:block;font-size:11.5px;color:var(--muted);line-height:1.35}
+.vpend{display:inline-block;font-family:var(--mono);font-size:11.5px;border-radius:999px;padding:1px 8px;background:var(--warn-soft);color:var(--warn);border:1px solid #EED48A}
+.msg,.step,.typing{animation:pop .22s cubic-bezier(.2,0,0,1)}
+@keyframes pop{from{transform:translateY(4px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.msg,.step,.typing{animation:none}.dots i{animation:none;opacity:.7}.kv .v,.meter .fill{transition:none}}
+.qr{display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px 0;background:#fff}
+.qr button{border:1px solid var(--brand);color:var(--brand-600);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer}
+.qr button:hover{background:var(--brand-soft)}
+.qr button.ghost{border-color:var(--line);color:var(--muted)}
+.qr button:disabled{opacity:.5;cursor:not-allowed}
+.composer{display:flex;gap:8px;padding:10px 12px 12px;background:#fff;align-items:center;flex-wrap:wrap}
+.composer .as{flex-basis:100%;font-size:12px;color:var(--muted)}
+.composer .as b{color:var(--ink)}
+.composer input{flex:1;min-width:0;border:1px solid var(--line);border-radius:999px;padding:9px 14px}
+.composer input:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(76,59,239,.18)}
+.composer input:disabled{background:var(--bg)}
+.send{width:40px;height:40px;border-radius:50%;border:0;background:var(--brand);color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}
+.send:disabled{opacity:.45;cursor:not-allowed}
+footer{font-size:12px;color:var(--muted);padding-block:0 14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+/* Responsive */
+@media (min-width:1001px){
+  body{height:100%} main{overflow:hidden} .col{overflow:auto} .col.right{overflow:hidden} .chat{height:100%}
+  .col>.log-card{flex:1 1 0;min-height:240px}
+}
+@media (max-width:1000px){
+  html,body{height:auto}
+  main{flex:none;grid-template-columns:minmax(0,1fr)}
+  .col>.log-card,.col>.chat{flex:none}
+  .log{max-height:none} .msgs{max-height:60vh}
+}
+@media (max-width:560px){
+  .form,.visit{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .f.w2{grid-column:1/-1} .band .sep{display:none} .toggle{margin-left:0}
+}
+</style>
+<style>
+.chat-h .wa.teams{color:var(--brand-600);background:var(--brand-soft)}
+.chat-h .wa.mail{color:var(--ink);background:var(--line-soft)}
+.mail{display:block;white-space:normal}
+.mail .msubj{display:block;font-weight:700;color:var(--ink)}
+.mail .mfrom{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.xls{display:block;border:1px solid var(--line);border-radius:var(--r-md);margin-top:8px;background:#fff;overflow:hidden}
+.xls .fn{display:flex;gap:6px;align-items:center;padding:6px 8px;font-size:12px;font-weight:700;color:var(--ok);border-bottom:1px solid var(--line-soft)}
+.xls .tw{display:block;overflow-x:auto}
+.xls table{border-collapse:collapse;font-size:11.5px;font-family:var(--mono)}
+.xls th,.xls td{border:1px solid var(--line-soft);padding:3px 6px;white-space:nowrap;text-align:left}
+.xls th{background:#F7F7FB;color:var(--ink)}
+.photos{display:flex;gap:6px;margin-top:2px;white-space:normal;flex-wrap:wrap}
+.ph{width:92px;display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted);line-height:1.3}
+.ph svg{width:92px;height:69px;border-radius:6px;display:block}
+.ph b{color:var(--ink);font-size:11.5px}
+.vid .pin{width:30px;height:30px;border-radius:50%;background:var(--ok);display:grid;place-items:center;flex:none}
+.qr button.photo{border-style:dashed}
+.kv.full{grid-column:1/-1}
+</style>
+<header class="band"><div class="band-in">
+  <img class="logo" src="data:image/png;base64,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" alt="SimpliRoute">
+  <span class="sep" aria-hidden="true"></span>
+  <div class="titles"><span class="eyebrow">ADA · Servicios con custodia · Central de monitoreo</span><h1>Monitoreo de servicios con custodia</h1></div>
+  <span class="spacer"></span>
+  <span class="badge-sim clock" id="clock">07:30 · CDMX</span>
+  <span class="badge-sim">Simulación con datos de ejemplo</span>
+</div></header>
+<main>
+  <div class="col left">
+    <details class="card api" open>
+      <summary><span class="api-pill">Correo + GPS</span><h2>Servicio de punta a punta</h2><span class="api-pill off" id="engine">Conectando IA…</span>
+        <svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg></summary>
+      <form class="form" id="form" autocomplete="off">
+        <div class="f w2"><label for="preset">Ejemplo rápido</label><select id="preset"></select></div>
+        <div class="f w2"><label>Qué muestra</label><div class="desc" id="presetDesc"></div></div>
+        <div class="form-actions">
+          <button class="btn primary" type="submit" id="go"></button>
+          <button class="btn" type="button" id="reset">Reiniciar</button>
+          <label class="toggle"><input type="checkbox" id="precise"> IA precisa</label>
+        </div>
+      </form>
+    </details>
+    <section class="card"><div class="card-h"><h2>Servicio</h2><span class="hint" id="objHint"></span></div><div class="visit" id="obj"></div></section>
+    <section class="card log-card"><div class="card-h"><h2>Registro de ejecución</h2><span class="hint" id="logHint">0 pasos</span></div><ol class="log" id="log"></ol></section>
+  </div>
+  <div class="col right">
+    <section class="card chat" aria-label="Conversaciones">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="chat-h" id="chatHead"></div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="qr" id="qr" hidden></div>
+      <form class="composer" id="composer" autocomplete="off">
+        <span class="as" id="asWho"></span>
+        <input id="text" placeholder="Escribe una respuesta…" aria-label="Mensaje" disabled>
+        <button class="send" id="sendBtn" type="submit" aria-label="Enviar" disabled><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 9l14-7-5 15-2.5-6z" fill="currentColor"/></svg></button>
+      </form>
+    </section>
+  </div>
+</main>
+<footer>Mockup genérico del monitoreo de servicios con custodia: desde el correo de solicitud hasta el cierre con evidencia validada. El premonitoreo por voz se muestra en la plataforma ADA; las plataformas de rastreo y Teams están simuladas. Los datos son de ejemplo.</footer>
+<script>
+(function(){
+const ADA = `<img class="ada" alt="" src="data:image/webp;base64,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">`;
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const hm = m => { m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m/60)) + ':' + pad(m%60); };
+const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+
+/* Datos de ejemplo (ficticios) */
+const SVC = { folio:'SRV-10482', folioCliente:'CL-5531', cliente:'Cliente de ejemplo', tipo:'Local', origen:'CEDIS Cuautitlán', destino:'Tienda Iztapalapa',
+  cita:600, salida:618, rutaMin:157, custodio:'Luis Ramírez', tel:'+52 55 3100 4821', unidad:'U-117', placa:'47-AK-9T', candado:'C-3317', gps:'GP-2208',
+  freq:20, umbral:10, paradaMaxAlimentos:30 };
+const VOL = { estatusMes:35000, llamadasMes:8000, turnosPersona:300 };
+const FUENTES = ['GPS de la unidad','Plataforma de rastreo A','Plataforma de rastreo B'];
+const ROUTE1 = [
+  { t:600, pct:0,  vel:0,  lugar:'CEDIS Cuautitlán (origen)', est:'en origen, carga en proceso' },
+  { t:620, pct:8,  vel:34, lugar:'Av. Teoloyucan, Cuautitlán Izcalli', est:'salió de origen a las 10:18, en tránsito, sin novedad' },
+  { t:640, pct:22, vel:71, lugar:'Autopista México–Querétaro, Tultitlán', est:'en tránsito, sin novedad' },
+  { t:660, pct:35, vel:38, lugar:'Periférico Norte, Tlalnepantla', est:'en tránsito, sin novedad' },
+];
+const PLACES2 = ['Av. Gran Canal, Gustavo A. Madero','Circuito Interior, Venustiano Carranza','Calz. Ignacio Zaragoza, Iztacalco','Calz. Ermita Iztapalapa, Iztapalapa','Av. Tláhuac, Iztapalapa, cerca de destino'];
+const XLS_OK = { archivo:'solicitud_custodia_28oct.xlsx', asunto:'Servicio de custodia 28/10 · CEDIS Cuautitlán',
+  cols:['Folio cliente','Fecha','Cita','Origen','Destino','Unidad','Placas','Custodio','Tipo'],
+  row:['CL-5531','28/10/2026','10:00','CEDIS Cuautitlán','Tienda Iztapalapa','U-117','47-AK-9T','Luis Ramírez','Local'] };
+const XLS_CAMBIO = { archivo:'servicios_cliente_v3.xlsx', asunto:'Servicio 28/10 · nuevo formato',
+  cols:['Folio cliente','Fecha','Hora','Ruta','Unidad','Placas','Tipo'],
+  row:['CL-5540','28/10/2026','11:30','Cuautitlán-Iztapalapa','U-121','47-AK-3R','Local'] };
+const PERFIL = ['Folio cliente','Fecha','Cita','Origen','Destino','Unidad','Placas','Custodio','Tipo'];
+
+const PHOTOS = {
+  valida:   { label:'Enviar 3 fotos válidas', placa:'47-AK-9T', candado:'cerrado', gps:true, fecha:'28/10/2026', hora:null, dup:null },
+  reciclada:{ label:'Foto reciclada', placa:'47-AK-9T', candado:'cerrado', gps:true, fecha:'12/10/2026', hora:'16:02', dup:'SRV-09877' },
+  placa:    { label:'Placa distinta', placa:'47-AK-8F', candado:'cerrado', gps:true, fecha:'28/10/2026', hora:null, dup:null },
+  candado:  { label:'Candado abierto', placa:'47-AK-9T', candado:'abierto', gps:true, fecha:'28/10/2026', hora:null, dup:null },
+  gps:      { label:'Sin GPS portátil', placa:'47-AK-9T', candado:'cerrado', gps:false, fecha:'28/10/2026', hora:null, dup:null },
+};
+const QUICK_INC = {
+  trafico:'Hay mucho tráfico en Periférico, vamos avanzando lento',
+  comida:'Paramos 15 min a comer, todo bien con la carga',
+  falla:'La unidad no enciende, parece falla mecánica',
+  eta:'¿A qué hora llegamos según el sistema?',
+  riesgo:'Nos viene siguiendo una camioneta desde hace rato',
+};
+const QUICK_POST = ['Ya avanzamos, todo en orden','¿Me confirmas la hora de llegada?','Gracias'];
+
+const SCENARIOS = [
+  { id:'feliz', name:'SRV-10482 · Camino feliz: tráfico y evidencia válida', formato:'ok',
+    desc:'Carga desde correo, estatus a tiempo, parada por tráfico que ADA resuelve sola y fotos aprobadas para el visto bueno.',
+    inc:['trafico','comida','eta','falla'], photos:['valida','reciclada','placa','candado','gps'] },
+  { id:'falla', name:'SRV-10482 · Falla mecánica: escala a Teams', formato:'ok',
+    desc:'La unidad se detiene, el custodio reporta falla mecánica y ADA crea el incidente, avisa al cliente y escala al monitorista.',
+    inc:['falla','trafico','eta','comida'], photos:['valida','reciclada','placa','candado','gps'] },
+  { id:'fraude', name:'SRV-10482 · Foto reciclada: posible fraude', formato:'ok',
+    desc:'Servicio completo hasta destino. El custodio manda una foto de otro servicio: ADA la rechaza, alerta y pide una nueva.',
+    inc:['trafico','comida','eta','falla'], photos:['reciclada','placa','candado','gps','valida'] },
+  { id:'riesgo', name:'SRV-10482 · Riesgo de seguridad: prioridad crítica', formato:'ok',
+    desc:'El custodio reporta que lo siguen. ADA alerta al monitorista con prioridad crítica y no toma la decisión del protocolo.',
+    inc:['riesgo','trafico','falla','eta'], photos:['valida','reciclada','placa','candado','gps'] },
+  { id:'formato', name:'Solicitud nueva · El cliente cambia el formato del Excel', formato:'cambio',
+    desc:'Llega un Excel con columnas distintas al formato acordado. ADA no carga el servicio y alerta al monitorista.',
+    inc:[], photos:[] },
+];
+
+const CONTACTS = {
+  principal:{ tab:'Custodio', name:()=>SVC.custodio, sub:()=>SVC.tel+' · custodio del servicio', av:'LR', canal:'WhatsApp', responde:true },
+  grupo:{ tab:'Grupo del cliente', name:()=>'Cliente · '+SVC.folio, sub:()=>'Grupo de WhatsApp · descripción: Folio '+SVC.folio, av:'CL', canal:'WhatsApp', responde:false },
+  teams:{ tab:'Monitorista · Teams', name:()=>'Monitorista de turno', sub:()=>'Canal de Teams · Central de monitoreo', av:'MT', canal:'Teams', responde:false },
+  correo:{ tab:'Correo', name:()=>'Bandeja de solicitudes', sub:()=>'Correo de la central · solicitudes de clientes', av:'@', canal:'Correo', responde:false },
+};
+const FIRMA = 'ADA · Central de monitoreo';
+
+const S = { gen:0, sc:null, started:false, status:'idle', stage:'idle', busy:false, steps:0, simMin:450,
+  chats:{}, unread:{}, active:'principal', typing:null, transcript:[] };
+let sample = null;
+const now = () => hm(S.simMin);
+const chk = g => { if (g !== S.gen) throw 'stale'; };
+
+/* Registro */
+const KIND = { trigger:'Disparador', in:'Entrada', ok:'Consulta', action:'Acción', info:'Regla', ai:'IA', wait:'En espera', warn:'Alerta', end:'Cierre' };
+function log(kind, title, d, code, chip) {
+  const ol = $('log'); ol.querySelector('.empty')?.remove(); ol.querySelectorAll('.live').forEach(n => n.classList.remove('live'));
+  S.steps++;
+  const cls = kind === 'ai' ? 'info' : kind === 'in' ? 'trigger' : kind;
+  const li = document.createElement('li'); li.className = 'step ' + cls + (kind === 'wait' ? ' live' : '');
+  const icon = { ok:'✓', warn:'!', end:'■' }[cls] || S.steps;
+  li.innerHTML = `<span class="t">${now()}</span><span class="dot">${icon}</span><div class="body"><div class="row1"><span class="title"></span><span class="chip">${chip || KIND[kind]}</span></div><div class="d"></div>${code ? '<pre></pre>' : ''}</div><span class="rail" aria-hidden="true"></span>`;
+  li.querySelector('.title').textContent = title; li.querySelector('.d').textContent = d || '';
+  if (code) li.querySelector('pre').textContent = typeof code === 'string' ? code : JSON.stringify(code, null, 2);
+  ol.appendChild(li); ol.scrollTop = ol.scrollHeight; $('logHint').textContent = `${S.steps} pasos`; clock(); return li;
+}
+function summary(t) { const ol = $('log'), s = document.createElement('li'); s.className = 'summary'; s.textContent = t; ol.appendChild(s); ol.scrollTop = ol.scrollHeight; }
+function emptyLog() {
+  $('log').innerHTML = `<li class="empty"><div class="caps">Qué hace ADA</div><ol>
+    <li><b>Lee</b> el correo con Excel, valida el formato y crea el servicio.</li>
+    <li><b>Publica</b> el estatus en el grupo del cliente con la frecuencia del contrato.</li>
+    <li><b>Pregunta</b> al custodio ante una parada no planificada y resuelve o escala a Teams.</li>
+    <li><b>Valida</b> las fotos de placa, candado y GPS portátil antes del visto bueno humano.</li>
+    <li><b>Muestra</b> al monitorista solo lo que requiere intervención, con métricas.</li></ol>
+    <p style="margin:10px 0 0;font-size:13px">El premonitoreo por voz (T−2 h y T−1 h) se muestra en vivo en la plataforma ADA; aquí se toma su resultado.</p></li>`;
+  $('logHint').textContent = '0 pasos';
+}
+function clock() { $('clock').textContent = now() + ' · CDMX'; }
+
+/* Chat */
+function renderTabs() {
+  $('tabs').innerHTML = Object.keys(CONTACTS).map(c => `<button class="tab" role="tab" type="button" aria-selected="${S.active===c}" data-c="${c}">${CONTACTS[c].tab}${S.unread[c] ? `<span class="n">${S.unread[c]}</span>` : ''}</button>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => setActive(b.dataset.c));
+}
+function renderChat() {
+  const c = S.active, info = CONTACTS[c];
+  const wcls = info.canal === 'Teams' ? 'wa teams' : info.canal === 'Correo' ? 'wa mail' : 'wa';
+  $('chatHead').innerHTML = `<span class="av"></span><div><div class="nm"></div><div class="sub"></div></div><span class="${wcls}">${info.canal}</span>`;
+  $('chatHead').querySelector('.av').textContent = info.av;
+  $('chatHead').querySelector('.nm').textContent = info.name(); $('chatHead').querySelector('.sub').textContent = info.sub();
+  const box = $('msgs'); box.innerHTML = '';
+  if (!S.chats[c].length) { const e = document.createElement('div'); e.className = 'sys'; e.textContent = S.started ? 'Sin mensajes en esta conversación.' : 'La conversación aparece cuando corre el flujo.'; box.appendChild(e); }
+  S.chats[c].forEach(m => box.appendChild(bubble(m)));
+  if (S.typing === c) { const t = document.createElement('div'); t.className = 'typing'; t.innerHTML = `${ADA}<span>ADA está escribiendo</span><span class="dots"><i></i><i></i><i></i></span>`; box.appendChild(t); }
+  box.scrollTop = box.scrollHeight; renderQuick(); renderTabs();
+}
+function fmt(text) {
+  return esc(text).replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
+    .replace(/\n?\[\[(\w+):([A-Za-z0-9_-]+)\]\]/g, (m, tipo, id) => renderAttachment(tipo, id));
+}
+function renderAttachment(tipo) {
+  if (tipo === 'MAPA') return `<span class="vid"><span class="pin"><svg width="14" height="18" viewBox="0 0 14 18" aria-hidden="true"><path d="M7 0C3.1 0 0 3 0 6.9 0 12 7 18 7 18s7-6 7-11.1C14 3 10.9 0 7 0zm0 9.5A2.6 2.6 0 1 1 7 4.3a2.6 2.6 0 0 1 0 5.2z" fill="#fff"/></svg></span><span><b>Ubicación en vivo</b><small>Enlace de seguimiento · simulado en la demo</small></span></span>`;
+  return '';
+}
+function bubble(m) {
+  const d = document.createElement('div');
+  if (m.dir === 'sys') { d.className = 'sys'; d.textContent = m.text; return d; }
+  d.className = 'msg ' + m.dir;
+  if (m.dir === 'out') { const f = document.createElement('div'); f.className = 'from'; f.innerHTML = ADA + `<span>${esc(FIRMA)}</span>`; d.appendChild(f); }
+  const b = document.createElement('span'); if (m.html) b.innerHTML = m.html; else b.textContent = m.text; d.appendChild(b);
+  const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = m.time + (m.dir === 'out' ? ' ✓✓' : ''); d.appendChild(meta); return d;
+}
+function setActive(c) { S.active = c; S.unread[c] = 0; renderChat(); }
+function push(c, m) { S.chats[c].push(m); if (c !== S.active) S.unread[c]++; renderChat(); }
+async function say(c, text) {
+  const g = S.gen; S.typing = c; renderChat(); await sleep(Math.min(1300, 400 + text.length * 4)); if (g !== S.gen) throw 'stale';
+  S.typing = null; push(c, { dir:'out', text, html:fmt(text), time:now() });
+  if (c === 'principal') S.transcript.push({ who:'ADA', text }); await sleep(180);
+}
+function sys(c, text) { push(c, { dir:'sys', text }); }
+const canReply = () => CONTACTS[S.active].responde && (S.status === 'waiting' || S.status === 'resolved') && !S.busy;
+function quickList() {
+  if (S.stage === 'incidencia') return S.sc.inc.map(k => ({ t:QUICK_INC[k] }));
+  if (S.stage === 'post') return QUICK_POST.map(t => ({ t }));
+  if (S.stage === 'evidencia') return S.sc.photos.map(k => ({ t:PHOTOS[k].label, photo:k })).concat([{ t:'¿Qué fotos necesitas?' }]);
+  return [];
+}
+function renderQuick() {
+  const qr = $('qr'); qr.innerHTML = ''; const can = canReply();
+  const show = CONTACTS[S.active].responde && (S.status === 'waiting' || S.status === 'resolved');
+  if (show) {
+    quickList().forEach(o => { const b = document.createElement('button'); b.type = 'button'; b.textContent = o.t; b.disabled = !can;
+      if (o.photo) { b.className = 'photo'; b.onclick = () => sendPhoto(o.photo); } else b.onclick = () => send(o.t); qr.appendChild(b); });
+    if (S.stage === 'incidencia' || S.stage === 'evidencia') { const g = document.createElement('button'); g.type = 'button'; g.className = 'ghost'; g.textContent = 'Simular que no responde'; g.disabled = !can; g.onclick = noReply; qr.appendChild(g); }
+  }
+  qr.hidden = !show; $('text').disabled = !can; $('sendBtn').disabled = !can;
+  const as = $('asWho');
+  if (show) { as.innerHTML = 'Respondes como <b></b>'; as.querySelector('b').textContent = CONTACTS[S.active].name(); }
+  else as.textContent = !CONTACTS[S.active].responde ? 'Vista de solo lectura en esta simulación.' : S.status === 'escalated' ? 'La conversación pasó al monitorista: ADA ya no responde.' : 'Esta conversación no espera respuesta ahora.';
+}
+
+/* Estado del servicio */
+const STAGE_LABEL = { idle:'Esperando solicitud', intake:'Carga de solicitud', ready:'Programado', transit:'En tránsito', incidencia:'Parada no planificada', post:'En tránsito', evidencia:'Validación de evidencia', fin:'' };
+function addTag(t, cls) { S.tags.push([t, cls]); renderState(); }
+function renderState() {
+  const c = S.created;
+  const v = [
+    ['Folio', c ? SVC.folio : '—'], ['Cliente', SVC.cliente], ['Tipo', c ? `${SVC.tipo} · estatus cada ${SVC.freq} min` : '—'], ['Etapa', S.stage === 'fin' ? S.finLabel : STAGE_LABEL[S.stage]],
+    ['Origen', c ? SVC.origen : '—'], ['Destino', c ? SVC.destino : '—'], ['Cita en origen', c ? hm(SVC.cita) : '—'], ['Llegada estimada', c ? hm(S.eta) : '—'],
+    ['Custodio', c ? SVC.custodio : '—'], ['Unidad', c ? `${SVC.unidad} · ${SVC.placa}` : '—'], ['Ubicación', S.ubic || '—'], ['Próximo estatus', S.next != null ? hm(S.next) : '—'],
+  ];
+  const el = $('obj'); el.innerHTML = '';
+  v.forEach(([k, val]) => {
+    const d = document.createElement('div'); d.className = 'kv'; d.innerHTML = '<div class="k"></div><div class="v"></div>';
+    d.querySelector('.k').textContent = k; const vv = d.querySelector('.v'); vv.textContent = val;
+    if (S.prev[k] !== undefined && S.prev[k] !== val) { vv.classList.add('flash'); setTimeout(() => vv.classList.remove('flash'), 700); }
+    S.prev[k] = val; el.appendChild(d);
+  });
+  const lab = document.createElement('div'); lab.className = 'kv full'; lab.innerHTML = `<div class="k">Avance de ruta · ${S.pct}%</div>`; el.appendChild(lab);
+  const m = document.createElement('div'); m.className = 'meter'; m.style.marginBottom = '4px'; m.innerHTML = `<div class="fill" style="width:${S.pct}%"></div>`; el.appendChild(m);
+  const tags = document.createElement('div'); tags.className = 'tags';
+  const all = S.tags.slice(); if (S.m.estatus) all.push([`Estatus a tiempo ${S.m.aTiempo}/${S.m.estatus}`, S.m.aTiempo === S.m.estatus ? 'ok' : 'warn']);
+  all.forEach(([t, cls]) => { const s = document.createElement('span'); s.className = 'tag ' + (cls || ''); s.textContent = t; tags.appendChild(s); });
+  el.appendChild(tags);
+  $('objHint').textContent = c ? `Fuente de ubicación: GPS y plataformas de rastreo (simulado)` : 'Servicio sin crear';
+  clock();
+}
+function setGo(label, on) { $('go').innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11L12 7z" fill="currentColor"/></svg> ` + esc(label); $('go').disabled = !on; }
+
+/* Ejecución */
+async function run(fn) { S.busy = true; renderQuick(); const g = S.gen; try { await fn(g); } catch (e) { if (e !== 'stale') console.error(e); } finally { if (g === S.gen) { S.busy = false; renderChat(); renderState(); } } }
+function reset() {
+  S.gen++; S.sc = SCENARIOS[+$('preset').value]; S.started = false; S.busy = false; S.steps = 0; S.typing = null; S.status = 'idle'; S.stage = 'idle'; S.transcript = [];
+  S.simMin = 450; S.created = false; S.eta = SVC.salida + SVC.rutaMin; S.ubic = null; S.pct = 0; S.next = null; S.lastStatus = null; S.stopStart = null;
+  S.tags = []; S.prev = {}; S.pendingQ = false; S.finLabel = ''; S.incSeq = 3307;
+  S.m = { estatus:0, aTiempo:0, maxGap:0, preguntas:0, respuestas:0, incidencias:0, incResueltas:0, incEscaladas:0, fotos:0, fotosRech:0, intervenciones:0, alertasEvidencia:0 };
+  S.chats = {}; S.unread = {}; Object.keys(CONTACTS).forEach(c => { S.chats[c] = []; S.unread[c] = 0; }); S.active = 'correo';
+  $('presetDesc').textContent = S.sc.desc; setGo('Recibir solicitud por correo', true); emptyLog(); renderState(); renderChat();
+}
+const coord = pct => ({ lat:+(19.669 + (19.357 - 19.669) * pct / 100).toFixed(5), lng:+(-99.177 + (-99.093 + 99.177) * pct / 100).toFixed(5) });
+
+/* Publica un estatus en el grupo del cliente y lleva el control de frecuencia */
+async function publish(est, opts) {
+  opts = opts || {};
+  const gap = S.lastStatus == null ? 0 : S.simMin - S.lastStatus, ok = gap <= SVC.freq;
+  S.m.estatus++; if (ok) S.m.aTiempo++; S.m.maxGap = Math.max(S.m.maxGap, gap); S.lastStatus = S.simMin;
+  S.next = opts.final ? null : S.simMin + SVC.freq; renderState();
+  const lines = [`*Folio ${SVC.folio} · ${now()}*`, `Estatus: ${est}`];
+  if (opts.lines) lines.push(...opts.lines);
+  else { lines.push(`Ubicación: ${S.ubic}`, `Llegada estimada a destino: ${hm(S.eta)}${opts.etaAntes ? ` (antes ${opts.etaAntes})` : ''}`); }
+  if (!opts.noNext) lines.push(`Próxima actualización: ${S.next == null ? 'al cerrar el servicio' : hm(S.next)}`);
+  if (opts.map !== false) lines.push(`[[MAPA:s${S.m.estatus}]]`);
+  log('action', 'Publicar estatus en el grupo del cliente', `Estatus ${S.m.estatus}. ` + (S.m.estatus === 1 ? 'Primer estatus del servicio.' : `Brecha con el anterior: ${gap} min (máx. ${SVC.freq}) ${ok ? '✓ a tiempo' : '· fuera de frecuencia'}.`));
+  await say('grupo', lines.join('\n'));
+}
+async function postStatus(p) {
+  S.simMin = p.t; const fuente = FUENTES[S.m.estatus % 3], pos = coord(p.pct);
+  S.ubic = p.lugar; S.pct = p.pct;
+  log('ok', 'Consultar ubicación', `${fuente} (simulado): ${p.lugar}.`, { fuente, folio:SVC.folio, lat:pos.lat, lng:pos.lng, velocidad_kmh:p.vel, timestamp:now() });
+  await publish(p.est, p.opts);
+}
+
+/* 1 · Correo de solicitud */
+function mailHtml(x) {
+  return `<span class="mail"><span class="msubj">${esc(x.asunto)}</span><span class="mfrom">De: Operaciones · ${esc(SVC.cliente)}</span>Buen día, les compartimos el servicio de hoy. Quedamos atentos.<span class="xls"><span class="fn"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="2" fill="#00804A"/><path d="M4 4l6 6M10 4l-6 6" stroke="#fff" stroke-width="1.6"/></svg>${esc(x.archivo)}</span><span class="tw"><table><tr>${x.cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr><tr>${x.row.map(c => `<td>${esc(c)}</td>`).join('')}</tr></table></span></span></span>`;
+}
+async function start(g) {
+  S.started = true; S.status = 'running'; S.stage = 'intake'; setGo('Procesando…', false);
+  S.simMin = 462; setActive('correo');
+  const x = S.sc.formato === 'cambio' ? XLS_CAMBIO : XLS_OK;
+  log('trigger', 'Correo de solicitud recibido', `De: Operaciones del cliente\nAsunto: ${x.asunto}\nAdjunto: ${x.archivo}`);
+  push('correo', { dir:'in', html:mailHtml(x), text:'', time:now() });
+  await sleep(600); chk(g);
+  log('ok', 'Leer adjunto', `${x.archivo}: 1 hoja, 1 servicio.`, { archivo:x.archivo, hoja:'Servicios', columnas:x.cols, filas:1 });
+  await sleep(450); chk(g);
+  const faltan = PERFIL.filter(c => !x.cols.includes(c)), nuevas = x.cols.filter(c => !PERFIL.includes(c));
+  if (faltan.length) {
+    log('warn', 'Formato distinto al acordado', `Faltan ${faltan.join(', ')}. Columnas nuevas: ${nuevas.join(', ')}.`, { perfil:'perfil_cliente_v2', esperadas:PERFIL, recibidas:x.cols, faltantes:faltan, nuevas, nota:'"Hora" podría equivaler a "Cita", sin confirmar' });
+    await sleep(450); chk(g);
+    log('info', 'No cargar el servicio', 'Regla: ante un formato distinto, ADA alerta en lugar de cargar datos dudosos.');
+    await sleep(300); chk(g);
+    await say('teams', `*Requiere intervención: solicitud del cliente*\n*Evento:* el Excel llegó con un formato distinto al acordado\n*Diferencias:* faltan ${faltan.join(', ')}; columnas nuevas ${nuevas.join(' y ')}\n*Folio del cliente:* ${x.row[0]} · ${x.row[3]} · ${x.row[2]}\n*Ya hecho:* servicio NO cargado, correo marcado para revisión\n*Acción sugerida:* confirmar el formato con el cliente o cargar manualmente`);
+    S.m.intervenciones++;
+    log('warn', 'Escalar al monitorista en Teams', 'Alerta enviada con las diferencias detectadas.');
+    log('end', 'Solicitud en revisión humana', 'El servicio no se creó. Queda en manos del monitorista confirmar el formato con el cliente.');
+    summary(`Resultado: ADA detectó ${faltan.length} columnas faltantes y ${nuevas.length} nuevas, no cargó el servicio y alertó al monitorista. Cero servicios mal cargados.`);
+    addTag('Formato distinto', 'err'); addTag('Escalado a Teams', 'warn');
+    S.stage = 'fin'; S.finLabel = 'En revisión humana'; S.status = 'escalated'; setGo('Solicitud en revisión', false); return;
+  }
+  log('info', 'Comparar con el formato del cliente', `Las ${PERFIL.length} columnas coinciden con el formato acordado con el cliente.`, { perfil:'perfil_cliente_v2', esperadas:PERFIL.length, coinciden:PERFIL.length, faltantes:[] });
+  await sleep(400); chk(g);
+  log('ai', 'Extraer datos del servicio', 'Origen, destino, unidad, custodio y horario.', { folio_cliente:SVC.folioCliente, fecha:'2026-10-28', cita:hm(SVC.cita), origen:SVC.origen, destino:SVC.destino, unidad:SVC.unidad, placas:SVC.placa, custodio:SVC.custodio, tipo:SVC.tipo });
+  await sleep(400); chk(g);
+  log('ok', 'Validar datos', 'Custodio activo, unidad con GPS vinculado y cita en el futuro.', { custodio:{ nombre:SVC.custodio, activo:true, telefono:SVC.tel }, unidad:{ id:SVC.unidad, gps:'Plataforma de rastreo A', vinculado:true }, cita_futura:true });
+  await sleep(400); chk(g);
+  S.created = true; renderState();
+  log('action', `Crear servicio ${SVC.folio}`, 'Alta en el sistema de la central (simulado).', { request:{ metodo:'POST', ruta:'/servicios', cliente:SVC.cliente, folio_cliente:SVC.folioCliente }, response:{ status:201, id:SVC.folio, estado:'programado' } });
+  addTag('Cargado desde correo', 'ok');
+  await sleep(400); chk(g);
+  log('action', 'Programar seguimiento', `Estatus cada ${SVC.freq} min desde la cita y vigilancia de paradas no planificadas.`, { estatus:{ desde:hm(SVC.cita), cada_min:SVC.freq, canal:'WhatsApp · grupo del cliente' }, parada_no_planificada:{ umbral_min:SVC.umbral, nota:'propuesta a confirmar' }, premonitoreo_voz:['08:00', '09:00'] });
+  await sleep(500); chk(g);
+  S.simMin = 480; log('ok', 'Premonitoreo T−2 h por voz', 'Luis confirmó que toma el servicio. Se muestra en vivo en la plataforma ADA; aquí se toma su resultado.', null, 'Plataforma ADA');
+  addTag('T−2 h confirmado (voz)', 'brand');
+  await sleep(500); chk(g);
+  S.simMin = 540; log('ok', 'Premonitoreo T−1 h por voz', 'Luis va en camino al origen. Se muestra en vivo en la plataforma ADA.', null, 'Plataforma ADA');
+  addTag('T−1 h en camino (voz)', 'brand');
+  S.stage = 'ready'; S.status = 'ready'; setGo('Iniciar servicio · 10:00', true);
+}
+
+/* 4 · Estatus automáticos hasta la parada */
+async function transit1(g) {
+  S.stage = 'transit'; S.status = 'running'; setGo('Monitoreando…', false); setActive('grupo');
+  S.simMin = 600;
+  log('trigger', 'Inicio del servicio', `Cita en ${SVC.origen} a las ${hm(SVC.cita)}. Arranca el ciclo de estatus cada ${SVC.freq} min.`);
+  sys('grupo', `ADA publica aquí el estatus de ${SVC.folio}. El folio en la descripción del grupo evita mezclar servicios.`);
+  for (const p of ROUTE1) { await sleep(350); chk(g); await postStatus(p); }
+  await sleep(600); chk(g);
+  S.stopStart = 665; S.simMin = S.stopStart + SVC.umbral;
+  log('ok', 'Consultar ubicación', `Plataforma de rastreo A (simulado): velocidad 0 km/h desde las ${hm(S.stopStart)} en ${S.ubic}.`, { fuente:'Plataforma de rastreo A', lat:coord(36).lat, lng:coord(36).lng, velocidad_kmh:0, detenido_desde:hm(S.stopStart) });
+  S.pct = 36;
+  log('info', 'Regla: parada no planificada', `Detenida ${S.simMin - S.stopStart} min fuera de paradas autorizadas. Umbral: ${SVC.umbral} min (propuesta a confirmar).`);
+  await sleep(300); chk(g);
+  setActive('principal'); S.m.preguntas++; S.pendingQ = true;
+  await say('principal', `Hola Luis, te escribe ADA de la central de monitoreo. Veo la unidad *${SVC.unidad}* detenida desde las *${hm(S.stopStart)}* en ${S.ubic}. ¿Todo bien? Cuéntame el motivo de la parada.`);
+  log('action', 'Preguntar al custodio por WhatsApp', `Mensaje entregado a ${SVC.custodio}.`);
+  log('wait', 'Esperando respuesta del custodio', 'Si no responde: reintento a los 5 min y escalamiento a Teams a los 10 min.');
+  addTag('Parada no planificada', 'warn');
+  S.stage = 'incidencia'; S.status = 'waiting';
+}
+
+/* 4 · Estatus hasta destino y pedido de evidencia */
+async function transit2(g) {
+  S.stage = 'transit'; S.status = 'running'; setGo('Monitoreando…', false); setActive('grupo');
+  log('trigger', 'Continúa el servicio', 'La unidad retoma la ruta. ADA mantiene la frecuencia de estatus.');
+  const pts = []; let t = S.lastStatus + SVC.freq, i = 0;
+  while (t < S.eta) { pts.push({ t, lugar:PLACES2[Math.min(i, PLACES2.length - 1)], est:'en tránsito, sin novedad', vel:[42, 37, 55, 29, 24][Math.min(i, 4)] }); t += SVC.freq; i++; }
+  const p0 = S.pct;
+  pts.forEach((p, k) => p.pct = Math.round(p0 + (95 - p0) * (k + 1) / pts.length));
+  for (const p of pts) { await sleep(300); chk(g); await postStatus(p); }
+  await sleep(400); chk(g);
+  S.simMin = S.eta; S.ubic = SVC.destino; S.pct = 100;
+  log('ok', 'Geocerca de destino', `La unidad entró a la geocerca de ${SVC.destino}.`, { fuente:'GPS de la unidad', geocerca:SVC.destino, dentro:true, hora:now() });
+  await publish('llegó a destino, entrega en curso', { lines:[`Ubicación: ${SVC.destino}`, `Llegada: ${now()}`], final:true });
+  await sleep(400); chk(g);
+  S.simMin += 1; setActive('principal'); S.m.preguntas++; S.pendingQ = true;
+  await say('principal', `Luis, ya veo la unidad en *${SVC.destino}*. Para cerrar el servicio envíame 3 fotos tomadas ahora: la *placa* de la unidad, el *candado* cerrado y el *GPS portátil* visible.`);
+  log('action', 'Pedir evidencia por WhatsApp', 'Placa, candado y GPS portátil.');
+  log('wait', 'Esperando fotos de evidencia', 'Recordatorio a los 10 min; si no llegan, escala a Teams.');
+  S.stage = 'evidencia'; S.status = 'waiting';
+}
+
+/* 6 · Validador de imágenes */
+function svgPlate(p) { return `<svg viewBox="0 0 92 69" aria-hidden="true"><rect width="92" height="69" fill="#5B6275"/><rect x="0" y="52" width="92" height="17" fill="#3D4352"/><rect x="11" y="21" width="70" height="26" rx="3" fill="#fff" stroke="#22242A" stroke-width="1.5"/><text x="46" y="39" font-size="12.5" text-anchor="middle" font-family="monospace" font-weight="700" fill="#22242A">${p}</text></svg>`; }
+function svgLock(closed) {
+  const sh = closed ? '<path d="M37 34v-8a9 9 0 0 1 18 0v8" fill="none" stroke="#C9CCD6" stroke-width="5"/>' : '<path d="M37 34v-8a9 9 0 0 1 18 0v-6" fill="none" stroke="#C9CCD6" stroke-width="5" transform="translate(9 -9)"/>';
+  return `<svg viewBox="0 0 92 69" aria-hidden="true"><rect width="92" height="69" fill="#7A6247"/><rect x="0" y="40" width="92" height="4" fill="#5E4A35"/>${sh}<rect x="32" y="33" width="28" height="24" rx="4" fill="#D9A400"/><circle cx="46" cy="44" r="3" fill="#5E4A35"/></svg>`;
+}
+function svgGps(present) {
+  return present ? `<svg viewBox="0 0 92 69" aria-hidden="true"><rect width="92" height="69" fill="#46523F"/><rect x="28" y="20" width="36" height="30" rx="5" fill="#22242A"/><circle cx="56" cy="27" r="3" fill="#2FD27A"/><rect x="34" y="36" width="18" height="3" rx="1.5" fill="#55586C"/></svg>`
+    : `<svg viewBox="0 0 92 69" aria-hidden="true"><rect width="92" height="69" fill="#46523F"/><rect x="28" y="20" width="36" height="30" rx="5" fill="none" stroke="#8E9A86" stroke-dasharray="4 3"/></svg>`;
+}
+function photoHtml(P, t) {
+  const cap = P.hora ? `${P.fecha} ${P.hora}` : `${P.fecha} ${t}`;
+  const it = (svg, n) => `<span class="ph">${svg}<b>${n}</b><span>${cap}</span></span>`;
+  return `<span class="photos">${it(svgPlate(P.placa), 'Placa')}${it(svgLock(P.candado === 'cerrado'), 'Candado')}${it(svgGps(P.gps), 'GPS portátil')}</span>`;
+}
+function validate(P, t) {
+  const out = [];
+  out.push({ ok:P.placa === SVC.placa, title:'Validar placa', det:`Leída: ${P.placa} · asignada: ${SVC.placa}.`, json:{ ocr:P.placa, asignada:SVC.placa, unidad:SVC.unidad, confianza:0.97 } });
+  out.push({ ok:P.candado === 'cerrado', title:'Validar candado', det:`Candado ${SVC.candado}: ${P.candado}.`, json:{ candado:SVC.candado, estado:P.candado, visible:true } });
+  out.push({ ok:P.gps, title:'Validar GPS portátil', det:P.gps ? `Dispositivo ${SVC.gps} visible.` : 'El dispositivo no aparece en la foto.', json:{ gps_portatil:SVC.gps, detectado:P.gps } });
+  const enRango = P.fecha === '28/10/2026';
+  out.push({ ok:enRango, title:'Validar fecha y hora', det:enRango ? `Metadatos: 28/10/2026 ${t}, dentro de la ventana del servicio.` : `Metadatos: ${P.fecha} ${P.hora}, fuera de la ventana del servicio.`, json:{ metadatos:`${P.fecha} ${P.hora || t}`, ventana:`28/10/2026 ${hm(SVC.cita)}–${hm(S.eta + 30)}`, en_rango:enRango } });
+  out.push({ ok:!P.dup, title:'Buscar fotos repetidas', det:P.dup ? `Coincide 97% con una evidencia de ${P.dup} (12/10/2026).` : 'Sin coincidencias en el historial de 90 días.', json:P.dup ? { coincidencia:0.97, servicio:P.dup, fecha:'2026-10-12' } : { revisadas:1204, coincidencias:0 } });
+  out.push({ ok:true, title:'Indicio de imagen generada con IA', det:'Probabilidad baja (0.04). Es un filtro previo, no un veredicto: el visto bueno final es humano.', json:{ probabilidad_ia:0.04, umbral_alerta:0.6 } });
+  return out;
+}
+function sendPhoto(k) {
+  if (!canReply() || S.stage !== 'evidencia') return;
+  run(async g => {
+    const P = PHOTOS[k]; S.simMin += 2;
+    if (S.pendingQ) { S.m.respuestas++; S.pendingQ = false; }
+    push('principal', { dir:'in', html:photoHtml(P, now()), text:'', time:now() });
+    S.transcript.push({ who:'Custodio', text:'[Envía 3 fotos: placa, candado y GPS portátil]' });
+    log('in', 'Fotos recibidas', '3 imágenes: placa, candado y GPS portátil.', { archivos:['IMG_placa.jpg', 'IMG_candado.jpg', 'IMG_gps.jpg'] });
+    S.typing = 'principal'; renderChat();
+    const t = now();
+    for (const c of validate(P, t)) { await sleep(330); chk(g); log(c.ok ? 'ok' : 'warn', c.title, c.det, c.json, 'Validación'); }
+    S.typing = null; S.m.fotos += 3;
+    if (k === 'valida') {
+      log('ok', 'Evidencia aprobada por ADA', 'Pasa al visto bueno humano antes de finanzas.', { placa:'aprobada', candado:'aprobada', gps_portatil:'aprobada' }, 'Validación');
+      addTag('Evidencia aprobada', 'ok');
+      await say('principal', `Gracias, Luis. Validé las 3 fotos: placa *${SVC.placa}*, candado cerrado y GPS portátil visibles, con fecha y hora del servicio. El servicio queda cerrado. Buen trabajo.`);
+      log('action', 'Responder por WhatsApp', 'Mensaje entregado.');
+      return closeService(g);
+    }
+    S.m.fotosRech++;
+    const R = {
+      reciclada:{ tag:'Foto reciclada', msg:`Luis, la foto de la placa no corresponde a este servicio: es del *12 de octubre* y coincide con una evidencia anterior. Por favor tómala de nuevo ahora, en el destino.`, alerta:`*Alerta de evidencia: ${SVC.folio}*\n*Evento:* posible foto reciclada\n*Detalle:* metadatos del 12/10/2026 y coincidencia de 97% con una evidencia de SRV-09877\n*Ya hecho:* foto rechazada y nueva foto solicitada al custodio\n*Acción sugerida:* revisar el caso con el custodio` },
+      placa:{ tag:'Placa distinta', msg:`Luis, la placa de la foto (*${P.placa}*) no coincide con la unidad asignada (*${SVC.placa}*). Envíame una foto de la placa de la unidad ${SVC.unidad}, por favor.`, alerta:`*Alerta de evidencia: ${SVC.folio}*\n*Evento:* la placa de la foto no corresponde a la unidad\n*Detalle:* leída ${P.placa}, asignada ${SVC.placa}\n*Ya hecho:* foto rechazada y nueva foto solicitada al custodio\n*Acción sugerida:* confirmar la unidad con el custodio` },
+      candado:{ tag:'Candado abierto', msg:`Luis, en la foto el candado *${SVC.candado}* se ve abierto. Ciérralo y envíame una nueva foto, por favor.` },
+      gps:{ tag:'Falta GPS portátil', msg:`Gracias, Luis. La placa y el candado están bien, pero no veo el *GPS portátil* en la foto. Envíame una foto donde se vea el dispositivo, por favor.` },
+    }[k];
+    log('warn', k === 'gps' ? 'Pedir foto complementaria' : 'Evidencia rechazada', R.tag + (R.alerta ? '. Se marca como posible fraude.' : '.'), null, 'Validación');
+    addTag('Rechazada: ' + R.tag.toLowerCase(), 'err');
+    await say('principal', R.msg);
+    log('action', 'Responder por WhatsApp', 'Nueva foto solicitada al custodio.');
+    if (R.alerta) { await say('teams', R.alerta); S.m.intervenciones++; S.m.alertasEvidencia++; log('warn', 'Alertar al monitorista en Teams', 'Queda en su bandeja para revisión.'); }
+    S.m.preguntas++; S.pendingQ = true;
+    log('wait', 'Esperando nueva foto', 'Lo rechazado nunca llega a finanzas.');
+    S.status = 'waiting';
+  });
+}
+
+/* 7 · Cierre y vista del monitorista */
+async function closeService(g) {
+  S.simMin += 1;
+  log('action', 'Registrar evidencia en el servicio', 'Fotos y validaciones guardadas con el folio.', { folio:SVC.folio, evidencia:{ placa:'aprobada', candado:'aprobada', gps_portatil:'aprobada' }, visto_bueno:'pendiente · monitorista' });
+  await publish('servicio concluido, sin novedad', { lines:[`Llegada a ${SVC.destino}: ${hm(S.eta)}`, 'Evidencia: validada por la central'], final:true, map:false, noNext:true });
+  chk(g);
+  await say('teams', `*Visto bueno pendiente: ${SVC.folio}*\n*Evidencia:* 3/3 fotos aprobadas por ADA\n*Detalle:* placa ${SVC.placa}, candado ${SVC.candado} cerrado, GPS ${SVC.gps} visible\n*Acción:* dar el visto bueno final antes de enviar a finanzas`);
+  S.m.intervenciones++;
+  log('action', 'Enviar a visto bueno en Teams', 'Último control humano antes de finanzas.');
+  S.simMin += 1;
+  const m = S.m, inc = m.incResueltas + m.incEscaladas;
+  const estT = Math.round(VOL.estatusMes / VOL.turnosPersona / 5) * 5, llaT = Math.round(VOL.llamadasMes / VOL.turnosPersona);
+  await say('teams', [
+    `*Bandeja del monitorista · ${SVC.folio}*`,
+    `Requieren intervención: ${m.intervenciones}${m.alertasEvidencia ? ` (visto bueno y ${m.alertasEvidencia} alerta de evidencia)` : ' (solo el visto bueno)'}`,
+    '', '*Lo que hizo ADA en este servicio*',
+    'Llamadas de premonitoreo: 2 (voz, plataforma ADA)',
+    `Estatus al cliente: ${m.estatus}, a tiempo ${m.aTiempo}/${m.estatus} (brecha máx. ${m.maxGap} min)`,
+    `Respuestas del custodio: ${m.respuestas}/${m.preguntas} mensajes`,
+    `Incidencias: ${inc}, resueltas por ADA ${m.incResueltas}`,
+    `Fotos revisadas: ${m.fotos}, rechazadas ${m.fotosRech}`,
+    '', '*Proyección por monitorista y turno*',
+    `~${estT} estatus y ~${llaT} llamadas que ADA puede absorber`,
+  ].join('\n'));
+  log('info', 'Vista del monitorista', 'Bandeja solo con lo que requiere intervención, más métricas del servicio.', { intervenciones:m.intervenciones, estatus:m.estatus, a_tiempo:m.aTiempo, brecha_max_min:m.maxGap, incidencias:inc, resueltas_ada:m.incResueltas, fotos:m.fotos, rechazadas:m.fotosRech });
+  log('end', 'Servicio concluido', 'Criterio RESUELTO: evidencia aprobada, cliente informado y visto bueno en la bandeja del monitorista.');
+  summary(`Resultado: ${m.estatus} estatus publicados (${m.aTiempo} a tiempo), ${inc} incidencia${inc === 1 ? '' : 's'} resuelta${inc === 1 ? '' : 's'} sin monitorista y ${m.fotos} fotos revisadas. El monitorista solo intervino ${m.intervenciones} ${m.intervenciones === 1 ? 'vez' : 'veces'}. A escala: ~${estT} estatus y ~${llaT} llamadas por monitorista y turno.`);
+  S.stage = 'fin'; S.finLabel = 'Concluido · visto bueno pendiente'; S.status = 'closed'; S.next = null; setGo('Servicio concluido', false);
+  await sleep(500); setActive('teams');
+}
+
+/* 5 · Escalamiento */
+const ESC_INFO = {
+  falla_mecanica:{ tipo:'Falla mecánica', prio:'Alta', cliente:'detenido por falla mecánica; la central ya la atiende y la custodia sigue en sitio', accion:'solicitar asistencia vial' },
+  accidente:{ tipo:'Accidente vial', prio:'Alta', cliente:'detenido por un incidente vial; la central ya lo atiende', accion:'llamar al custodio, confirmar si hay lesionados y activar el seguro' },
+  emergencia:{ tipo:'Riesgo de seguridad', prio:'Crítica', cliente:'evento de seguridad en atención por la central de monitoreo', accion:'aplicar el protocolo de botón de pánico (911 y apoyo local). La decisión es del monitorista' },
+  no_puede_continuar:{ tipo:'Custodio no puede continuar', prio:'Alta', cliente:null, accion:'definir relevo del custodio' },
+  no_responde:{ tipo:'Custodio sin respuesta', prio:'Alta', cliente:null, accion:'llamar al custodio y revisar cámaras' },
+  evidencia_pendiente:{ tipo:'Evidencia pendiente', prio:'Media', cliente:null, accion:'contactar al custodio para obtener las fotos' },
+};
+async function escalate(res, lastText) {
+  const g = S.gen, E = ESC_INFO[res.intencion] || ESC_INFO.no_puede_continuar, inc = 'INC-' + S.incSeq;
+  const enRuta = S.stage === 'incidencia' || S.stage === 'post';
+  S.m.incidencias++; S.m.incEscaladas++;
+  log('action', `Crear incidente ${inc}`, `${E.tipo} · prioridad ${E.prio.toLowerCase()}.`, { request:{ metodo:'POST', ruta:'/incidentes', folio:SVC.folio, tipo:E.tipo, prioridad:E.prio }, response:{ status:201, id:inc }, datos:{ ubicacion:S.ubic, lat:coord(S.pct).lat, lng:coord(S.pct).lng, reporte_custodio:lastText || 'sin respuesta' } });
+  const hecho = [`incidente ${inc} creado`, 'ubicación registrada'];
+  if (E.cliente) { await publish(E.cliente, {}); chk(g); hecho.push('cliente notificado'); }
+  if (res.intencion === 'no_responde') hecho.push('2 mensajes al custodio sin respuesta');
+  if (res.intencion === 'evidencia_pendiente') hecho.push('2 solicitudes de fotos sin respuesta');
+  const evento = S.stage === 'evidencia' ? `en destino, durante la entrega de evidencia (${SVC.destino})` : `parada no planificada de ${S.simMin - S.stopStart} min en ${S.ubic}`;
+  const head = E.prio === 'Crítica' ? `*PRIORIDAD CRÍTICA: ${SVC.folio}*` : `*Requiere intervención: ${SVC.folio}*`;
+  await say('teams', [head, `*Evento:* ${evento}`, `*Custodio reporta:* ${lastText ? '"' + lastText + '"' : 'sin respuesta'}`, `*Ya hecho:* ${hecho.join(', ')}`, `*Acción sugerida:* ${E.accion}`].join('\n'));
+  S.m.intervenciones++;
+  log('warn', 'Escalar al monitorista en Teams', `${E.tipo}. ${E.prio === 'Crítica' ? 'ADA acompaña el protocolo, pero no toma la decisión.' : 'Resumen con todo lo que ya se hizo.'}`);
+  sys('principal', 'ADA transfirió la conversación al monitorista de turno.');
+  log('end', 'Incidencia en manos del monitorista', 'Criterio ESCALAR: requiere decisión humana.');
+  summary(`Resultado: ADA detectó la situación, ${E.cliente ? 'avisó al cliente, ' : ''}creó ${inc} y escaló a Teams con el contexto completo. El monitorista recibe el caso listo para actuar: ${E.accion}.`);
+  addTag(`Escalado: ${E.tipo.toLowerCase()}`, 'err');
+  S.stage = 'fin'; S.finLabel = 'Escalado al monitorista'; S.status = 'escalated'; S.next = null; setGo('Servicio escalado', false); renderState();
+}
+function noReply() {
+  if (!canReply()) return;
+  run(async g => {
+    if (S.stage === 'incidencia') {
+      S.simMin = S.lastStatus + SVC.freq;
+      log('info', 'Regla: estatus por frecuencia', 'Aunque la incidencia siga abierta, el cliente recibe su estatus a tiempo.');
+      await publish(`detenido en ${S.ubic}; la central está verificando con el custodio`, {}); chk(g);
+      log('info', 'Regla: sin respuesta en 5 min', 'Reintento por WhatsApp.');
+      S.m.preguntas++;
+      await say('principal', `Luis, sigo viendo la unidad detenida desde las ${hm(S.stopStart)}. Por favor respóndeme con el motivo de la parada.`);
+      log('action', 'Reintento por WhatsApp', 'Segundo mensaje al custodio.');
+      log('wait', 'Esperando respuesta', '5 min más antes de escalar.');
+      await sleep(1000); chk(g);
+      S.simMin += 5;
+      log('warn', 'Sin respuesta del custodio', `Unidad detenida ${S.simMin - S.stopStart} min y 2 mensajes sin respuesta.`);
+      return escalate({ intencion:'no_responde' }, null);
+    }
+    if (S.stage === 'evidencia') {
+      S.simMin += 10; S.m.preguntas++;
+      await say('principal', `Luis, sigo esperando las 3 fotos para cerrar el servicio: placa, candado cerrado y GPS portátil.`);
+      log('action', 'Recordatorio por WhatsApp', 'Segunda solicitud de evidencia.');
+      log('wait', 'Esperando fotos', '10 min más antes de escalar.');
+      await sleep(1000); chk(g);
+      S.simMin += 10;
+      log('warn', 'Evidencia sin respuesta', 'El servicio no puede cerrarse sin fotos.');
+      return escalate({ intencion:'evidencia_pendiente' }, null);
+    }
+  });
+}
+
+/* Conversación con el custodio: IA con guion de respaldo */
+const INTENTS = ['trafico','alimentos','falla_mecanica','accidente','emergencia','no_puede_continuar','consulta_eta','confirmacion','evidencia','otro'];
+const ESC = ['falla_mecanica','accidente','emergencia','no_puede_continuar'];
+const ORDER = ['registrar_incidencia','recalcular_eta','notificar_cliente','crear_incidente','escalar_teams'];
+function etaWith(extra) { return S.stage === 'incidencia' ? SVC.salida + SVC.rutaMin + (S.simMin - S.stopStart) + extra : S.eta + extra; }
+function buildPrompt() {
+  const etapa = {
+    incidencia:`La unidad está detenida desde las ${hm(S.stopStart)} en ${S.ubic} (${S.simMin - S.stopStart} min, parada no planificada). Le preguntaste al custodio el motivo de la parada.`,
+    post:'La parada ya quedó registrada y la unidad sigue hacia el destino. El custodio puede escribir por cualquier motivo.',
+    evidencia:`La unidad llegó a ${SVC.destino}. Le pediste 3 fotos: placa, candado cerrado y GPS portátil. Las fotos llegan como imágenes, no por texto.`,
+  }[S.stage] || '';
+  const datos = { etapa:S.stage, hora_actual:now(), servicio:{ folio:SVC.folio, cliente:SVC.cliente, origen:SVC.origen, destino:SVC.destino, cita:hm(SVC.cita), custodio:SVC.custodio, unidad:SVC.unidad, placa:SVC.placa, candado:SVC.candado, gps_portatil:SVC.gps },
+    ubicacion_actual:S.ubic, eta:hm(S.eta), eta_si_trafico:hm(etaWith(10)), eta_si_alimentos:hm(etaWith(15)), parada_maxima_alimentos_min:SVC.paradaMaxAlimentos };
+  return [
+    'Eres ADA, el agente de IA de SimpliRoute que hace el monitoreo de servicios con custodia para una central de monitoreo en México. Es una simulación de preventa con datos de ejemplo; compórtate exactamente como en producción.',
+    'PROPÓSITO: quitarle a los monitoristas el trabajo repetitivo. Hablas por WhatsApp con el custodio del servicio. Resuelves tú lo simple y escalas al monitorista en Teams lo que requiere decisión humana.',
+    'REGLAS DE COMUNICACIÓN: español de México, trato de tú, amable y breve (máximo 60 palabras), sin emojis, *negritas* estilo WhatsApp solo para datos clave. Horas en formato 24 h, hora de Ciudad de México. Nunca inventes datos que no estén en DATOS.',
+    'ETAPA ACTUAL: ' + etapa,
+    'QUÉ HACER SEGÚN LO QUE ESCRIBA EL CUSTODIO:',
+    '1. Tráfico, bloqueo, obra o manifestación → "trafico". Lo resuelves tú: agradece, confirma que registraste la parada y que avisaste al cliente con la nueva llegada estimada (usa DATOS.eta_si_trafico). estado "resuelta". acciones: registrar_incidencia, recalcular_eta, notificar_cliente. En etapa evidencia, solo responde y estado "abierta".',
+    '2. Parada breve para comer, ir al baño o cargar combustible → "alimentos". Igual que 1 con DATOS.eta_si_alimentos; recuérdale que la parada máxima es de 30 min y que no deje la carga sola.',
+    '3. Falla mecánica, llanta ponchada, la unidad no enciende → "falla_mecanica". No intentes resolverla: dile que ya avisaste al monitorista de turno, que lo contactará para la asistencia vial y que se mantenga con la unidad. estado "escalada". acciones: crear_incidente, notificar_cliente, escalar_teams.',
+    '4. Choque o accidente → "accidente". Escala igual que 3 y dile que, si hay lesionados, llame al 911.',
+    '5. Riesgo de seguridad (lo siguen, asalto, robo, amenaza, pánico) → "emergencia". Dile que ya alertaste a la central con prioridad crítica y que, si está en peligro, active el botón de pánico. No hagas preguntas. estado "escalada".',
+    '6. No puede seguir con el servicio → "no_puede_continuar". Escala y dile que la central definirá el relevo.',
+    '7. Pregunta la hora de llegada → "consulta_eta": responde con DATOS.eta. En etapa incidencia, si aún no dijo el motivo de la parada, vuelve a preguntarlo.',
+    '8. Dice que todo bien o agradece → "confirmacion". En etapa incidencia, si no explicó el motivo, pídeselo en una línea.',
+    '9. Pregunta por las fotos o la evidencia → "evidencia": necesitas 3 fotos tomadas en el destino: placa de la unidad, candado cerrado y GPS portátil visible. Si aún no llega a destino, dile que se las pedirás al llegar.',
+    '10. Otra cosa o fuera de alcance → "otro": responde breve y vuelve al tema de la etapa.',
+    'DATOS (JSON): ' + JSON.stringify(datos),
+    'CONVERSACIÓN HASTA AHORA:\n' + S.transcript.map(m => `${m.who}: ${m.text}`).join('\n'),
+    'Responde SOLO con un objeto JSON: {"intencion":"trafico|alimentos|falla_mecanica|accidente|emergencia|no_puede_continuar|consulta_eta|confirmacion|evidencia|otro","acciones":[{"tipo":"registrar_incidencia|recalcular_eta|notificar_cliente|crear_incidente|escalar_teams","detalle":"…"}],"respuesta":"…","estado":"abierta|resuelta|escalada","resumen_monitorista":"…"}',
+  ].join('\n');
+}
+function rules(text) {
+  const t = norm(text), has = (...k) => k.some(w => t.includes(w));
+  let i = 'otro';
+  if (has('siguiendo', 'nos sigue', 'me sigue', 'asalt', 'robo', 'roban', 'arma', 'amenaz', 'panico', 'auxilio', 'emergencia', 'sospechos')) i = 'emergencia';
+  else if (has('choque', 'chocamos', 'chocaron', 'accidente', 'volcad')) i = 'accidente';
+  else if (has('falla', 'no enciende', 'no arranca', 'poncha', 'llanta', 'motor', 'descompu', 'mecanic', 'grua')) i = 'falla_mecanica';
+  else if (has('no puedo seguir', 'no puedo continuar', 'me tengo que ir', 'no voy a poder')) i = 'no_puede_continuar';
+  else if (has('trafico', 'trafic', 'embotell', 'bloqueo', 'manifesta', 'obra', 'lento', 'cerrado el paso', 'carga vehicular')) i = 'trafico';
+  else if (has('comer', 'comida', 'aliment', 'bano', 'cafe', 'gasolina', 'combustible', 'desayun')) i = 'alimentos';
+  else if (has('a que hora', 'hora de llegada', 'llegamos', 'cuanto falta', 'eta')) i = 'consulta_eta';
+  else if (has('foto', 'evidencia', 'imagen')) i = 'evidencia';
+  else if (has('gracias', 'todo bien', 'todo en orden', 'ok', 'enterado', 'listo', 'avanzamos', 'va ')) i = 'confirmacion';
+  const inc = S.stage === 'incidencia', ev = S.stage === 'evidencia';
+  const R = {
+    trafico:ev ? 'Gracias, Luis. Ya estás en destino; quedo pendiente de las 3 fotos para cerrar.' : `Gracias, Luis. Registré la parada por tráfico y ya avisé al cliente: nueva llegada estimada a las *${hm(etaWith(10))}*. Si algo cambia, escríbeme.`,
+    alimentos:ev ? 'Enterado, Luis. Quedo pendiente de las 3 fotos para cerrar el servicio.' : `Enterado, Luis. Registré la parada breve y avisé al cliente: llegada estimada a las *${hm(etaWith(15))}*. Recuerda que la parada máxima es de ${SVC.paradaMaxAlimentos} min y no dejes la carga sola.`,
+    falla_mecanica:'Entendido, Luis. Ya avisé al monitorista de turno; te va a contactar para la asistencia vial. Mantente con la unidad y no dejes la carga sola.',
+    accidente:'Luis, ya avisé a la central y el monitorista te contacta enseguida. Si hay lesionados, llama al 911. Mantente en un lugar seguro.',
+    emergencia:'Luis, ya alerté a la central con *prioridad crítica*. Si estás en peligro, activa el botón de pánico. El monitorista toma el caso desde ahora.',
+    no_puede_continuar:'Entendido, Luis. Ya avisé al monitorista de turno para que defina el relevo. Quédate con la unidad hasta que te confirmen.',
+    consulta_eta:`La llegada estimada a ${SVC.destino} es a las *${hm(S.eta)}*.` + (inc ? ' ¿Me confirmas el motivo de la parada?' : ''),
+    confirmacion:inc ? 'Gracias, Luis. Para registrarlo bien, ¿me dices en una línea el motivo de la parada?' : ev ? 'Gracias. Quedo pendiente de las 3 fotos: placa, candado cerrado y GPS portátil.' : 'Gracias, Luis. Sigo monitoreando el servicio.',
+    evidencia:ev ? `Necesito 3 fotos tomadas ahora en el destino: la *placa* de la unidad ${SVC.placa}, el *candado* ${SVC.candado} cerrado y el *GPS portátil* visible.` : 'Las fotos de placa, candado y GPS portátil te las pido al llegar a destino.',
+    otro:inc ? 'Gracias, Luis. Para registrarlo, ¿me confirmas el motivo de la parada? Por ejemplo: tráfico, comida o una falla.' : 'Te leo, Luis. Eso lo ve directamente la central; yo sigo con el monitoreo del servicio.',
+  };
+  return { intencion:i, acciones:[], respuesta:R[i], estado:'abierta', resumen_monitorista:'' };
+}
+function normalize(r) {
+  r = r && typeof r === 'object' ? r : {};
+  if (!INTENTS.includes(r.intencion)) r.intencion = 'otro';
+  let acc = Array.isArray(r.acciones) ? r.acciones.filter(a => a && ORDER.includes(a.tipo)) : [];
+  const need = t => { if (!acc.some(a => a.tipo === t)) acc.push({ tipo:t, detalle:'' }); };
+  if (ESC.includes(r.intencion)) { r.estado = 'escalada'; acc = acc.filter(a => ['crear_incidente','notificar_cliente','escalar_teams'].includes(a.tipo)); need('crear_incidente'); need('notificar_cliente'); need('escalar_teams'); }
+  else if (['trafico','alimentos'].includes(r.intencion) && S.stage !== 'evidencia') { r.estado = 'resuelta'; acc = acc.filter(a => ['registrar_incidencia','recalcular_eta','notificar_cliente'].includes(a.tipo)); need('registrar_incidencia'); need('recalcular_eta'); need('notificar_cliente'); }
+  else { acc = []; r.estado = S.stage === 'post' ? 'resuelta' : 'abierta'; }
+  r.acciones = acc.sort((a, b) => ORDER.indexOf(a.tipo) - ORDER.indexOf(b.tipo));
+  r.respuesta = String(r.respuesta || '').trim() || rules('').respuesta;
+  return r;
+}
+async function actionStep(a, r) {
+  const motivo = r.intencion === 'trafico' ? 'tráfico' : 'alimentos';
+  if (a.tipo === 'registrar_incidencia') {
+    S.m.incidencias++;
+    log('action', 'Registrar incidencia', `Parada por ${motivo}, reportada por el custodio.`, { folio:SVC.folio, tipo:motivo, inicio:hm(S.stopStart ?? S.simMin), duracion_min:S.stopStart != null ? S.simMin - S.stopStart : 0, lugar:S.ubic, reportado_por:'custodio', resuelta_por:'ADA' });
+    return true;
+  }
+  if (a.tipo === 'recalcular_eta') {
+    const antes = hm(S.eta); S.eta = etaWith(r.intencion === 'trafico' ? 10 : 15); S.etaAntes = antes; renderState();
+    log('ok', 'Recalcular llegada estimada', `${antes} → ${hm(S.eta)}.`, { antes, ahora:hm(S.eta), motivo });
+    return true;
+  }
+  if (a.tipo === 'notificar_cliente' && r.estado !== 'escalada') {
+    const est = r.intencion === 'trafico' ? `detenido por tráfico en ${S.ubic}, custodia sin novedad` : `parada breve por alimentos en ${S.ubic}, custodia sin novedad`;
+    await publish(est, { etaAntes:S.etaAntes });
+    return true;
+  }
+  return false;
+}
+async function askAI() {
+  if (!sample) throw { code:'unavailable' };
+  const r = await sample.json(buildPrompt(), { modelTier:$('precise').checked ? 'default' : 'quick', cache:false });
+  if (!r || typeof r.respuesta !== 'string' || !r.respuesta.trim()) throw { code:'invalid_json' };
+  return r;
+}
+function send(text) {
+  text = (text || '').trim(); if (!text || !canReply()) return; $('text').value = '';
+  run(async g => {
+    S.simMin += 1; push('principal', { dir:'in', text, time:now() }); S.transcript.push({ who:'Custodio', text });
+    if (S.pendingQ) { S.m.respuestas++; S.pendingQ = false; }
+    log('in', 'Mensaje del custodio', '“' + text + '”');
+    S.typing = 'principal'; renderChat();
+    let res, via, note = '';
+    try { res = await askAI(); via = 'IA ' + ($('precise').checked ? 'precisa' : 'rápida'); }
+    catch (e) {
+      const code = e && e.code;
+      if (['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(code)) { sample = null; setEngine('local'); }
+      if (code && code !== 'unavailable') note = ` La IA no respondió (${code}).`;
+      res = rules(text); via = 'guion local';
+    }
+    chk(g);
+    res = normalize(res);
+    log('ai', 'Intención: ' + res.intencion, 'Motor: ' + via + '.' + note, { intencion:res.intencion, estado:res.estado, acciones:res.acciones.map(a => a.tipo) });
+    S.typing = null; renderChat();
+    for (const a of res.acciones) { if (await actionStep(a, res)) await sleep(200); chk(g); }
+    await say('principal', res.respuesta);
+    log('action', 'Responder por WhatsApp', 'Mensaje entregado.');
+    if (res.estado === 'escalada') return escalate(res, text);
+    if (['trafico','alimentos'].includes(res.intencion) && res.estado === 'resuelta') {
+      S.m.incResueltas++;
+      addTag(`Parada por ${res.intencion === 'trafico' ? 'tráfico' : 'alimentos'}: resuelta por ADA`, 'ok');
+      log('ok', 'Incidencia resuelta por ADA', 'Criterio RESUELTO: motivo simple y cliente informado, sin intervención del monitorista.', null, 'Resuelto');
+      if (S.stage === 'incidencia') { S.stage = 'post'; setGo('Continuar a destino', true); }
+    }
+    if (S.stage === 'post') { S.status = 'resolved'; log('info', 'Sigue el monitoreo', 'Usa "Continuar a destino" para avanzar el servicio.'); }
+    else { S.status = 'waiting'; S.pendingQ = true; log('wait', S.stage === 'evidencia' ? 'Esperando fotos de evidencia' : 'Esperando respuesta del custodio', S.stage === 'evidencia' ? 'Envía las fotos con los botones de abajo.' : 'Falta el motivo de la parada.'); }
+    renderState();
+  });
+}
+function setEngine(st) { const el = $('engine'); el.textContent = st === 'ai' ? 'IA activa' : st === 'connecting' ? 'Conectando IA…' : 'Guion local'; el.classList.toggle('off', st !== 'ai'); }
+
+/* Arranque */
+SCENARIOS.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; $('preset').appendChild(o); });
+$('preset').addEventListener('change', reset);
+$('form').addEventListener('submit', e => { e.preventDefault(); if (S.busy) return;
+  if (S.stage === 'idle') run(start); else if (S.stage === 'ready') run(transit1); else if (S.stage === 'post') run(transit2); });
+$('reset').addEventListener('click', reset);
+$('composer').addEventListener('submit', e => { e.preventDefault(); send($('text').value); });
+reset(); setEngine('connecting');
+if (window.claude && typeof window.claude.use === 'function') window.claude.use('sample').then(s => { sample = s; setEngine(s ? 'ai' : 'local'); }).catch(() => setEngine('local'));
+else setEngine('local');
+})();
+</script>
+
+</body></html>

@@ -1,0 +1,846 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Toma de pedidos y venta proactiva</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: banda de marca arriba; abajo dos paneles: escenario + estado + registro de ejecución (izquierda) y WhatsApp (derecha).
+   Tema claro único y de alto contraste. Tokens SimpliRoute Apollo DS. */
+:root{
+  --ink:#0C0645; --brand:#4C3BEF; --brand-600:#2A16DA; --brand-soft:#F3F2FE; --brand-200:#D4D0FB;
+  --bg:#F4F4F7; --surface:#FFFFFF; --line:#DBDBE0; --line-soft:#E9E9EB;
+  --fg:#22242A; --muted:#55586C; --subtle:#73768C;
+  --ok:#00804A; --ok-soft:#E3FBEF; --warn:#7A5B00; --warn-soft:#FFF6D6; --err:#B3112A; --err-soft:#FDECEC;
+  --chat-bg:#ECEEF6; --bubble-out:#E6E3FF; --bubble-in:#FFFFFF;
+  --font:'Open Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'Roboto Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --r-sm:6px; --r-md:8px; --r-lg:12px;
+  --shadow:0 1px 3px rgba(34,36,42,.10),0 1px 2px rgba(34,36,42,.06);
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.5;display:flex;flex-direction:column;min-height:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+/* Banda */
+.band{background:var(--ink);color:#fff}
+.band-in{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.band img.logo{height:24px;width:auto;display:block}
+.band .sep{width:1px;height:28px;background:rgba(255,255,255,.25)}
+.band h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.band .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#C9C4FF;font-weight:600}
+.band .titles{display:flex;flex-direction:column;min-width:0}
+.band .spacer{flex:1}
+.badge-sim{font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:4px 10px;color:#fff;white-space:nowrap}
+.badge-sim.clock{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums}
+/* Grid */
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:16px;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.col{min-height:0;min-width:0;display:flex;flex-direction:column;gap:16px}
+.col>*{flex:none}
+.col>.log-card,.col>.chat{flex:1 0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);min-width:0}
+.card-h{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line-soft)}
+.card-h h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+.card-h .hint{margin-left:auto;font-size:12px;color:var(--muted)}
+.caps{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+/* Escenario */
+details.api{overflow:hidden}
+details.api summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 16px}
+details.api summary::-webkit-details-marker{display:none}
+details.api summary h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+details.api summary .chev{margin-left:auto;transition:transform .18s;color:var(--muted)}
+details.api[open] summary .chev{transform:rotate(180deg)}
+details.api[open] summary{border-bottom:1px solid var(--line-soft)}
+.api-pill{font-family:var(--mono);font-size:11px;font-weight:500;background:var(--brand-soft);color:var(--brand-600);border-radius:var(--r-sm);padding:2px 6px;white-space:nowrap}
+.api-pill.off{background:var(--line-soft);color:var(--muted)}
+.form{padding:14px 16px 16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f.w2{grid-column:span 2}.f.w4{grid-column:1/-1}
+.f label{font-size:12px;font-weight:600;color:var(--muted)}
+.f input,.f select{width:100%;min-width:0;border:1px solid var(--line);border-radius:var(--r-md);padding:7px 9px;background:#fff;font-size:13.5px}
+.f input:focus,.f select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(76,59,239,.18)}
+.f .desc{font-size:13px;color:var(--fg);padding:7px 0 0}
+.form-actions{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding-top:4px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:var(--r-md);padding:8px 14px;font-weight:600;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:var(--brand-soft)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:var(--brand-600)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--fg);cursor:pointer;margin-left:auto}
+.toggle input{accent-color:var(--brand);width:16px;height:16px}
+/* Estado (kv) */
+.visit{padding:14px 16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px}
+.kv{min-width:0}
+.kv .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.kv .v{font-weight:600;color:var(--fg);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;border-radius:4px;transition:background-color .6s}
+.kv .v.flash{background:var(--brand-200)}
+.tags{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;min-height:24px}
+.tag{font-family:var(--mono);font-size:11.5px;border-radius:999px;padding:2px 9px;border:1px solid var(--line);background:#fff;color:var(--muted)}
+.tag.ok{background:var(--ok-soft);border-color:#9FDDBF;color:var(--ok)}
+.tag.warn{background:var(--warn-soft);border-color:#EED48A;color:var(--warn)}
+.tag.err{background:var(--err-soft);border-color:#F3B3BC;color:var(--err)}
+.tag.brand{background:var(--brand-soft);border-color:var(--brand-200);color:var(--brand-600)}
+.prio{display:inline-block;border-radius:var(--r-sm);padding:0 8px}
+.prio.p1{background:var(--brand);color:#fff}
+.prio.low{background:var(--err);color:#fff}
+.meter{grid-column:1/-1;position:relative;height:8px;border-radius:999px;background:var(--line-soft);margin:2px 0 14px}
+.meter .fill{position:absolute;inset:0 auto 0 0;border-radius:999px;background:var(--brand);transition:width .6s}
+.meter.low .fill{background:var(--err)}
+.meter .tick{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.meter .tick i{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap}
+/* Registro */
+.log-card{min-height:320px;display:flex;flex-direction:column}
+.log{list-style:none;margin:0;padding:8px 16px 16px;overflow:auto;flex:1;min-height:0}
+.step{display:grid;grid-template-columns:46px 22px minmax(0,1fr);gap:0 10px;position:relative;padding-top:12px}
+.step .t{font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:1px;font-variant-numeric:tabular-nums}
+.step .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;background:var(--brand);position:relative;z-index:1}
+.step:not(:last-child) .rail{position:absolute;left:66px;top:34px;bottom:-12px;width:2px;background:var(--line-soft)}
+.step.ok .dot{background:var(--ok)}
+.step.warn .dot{background:var(--err)}
+.step.wait .dot{background:#C99400}
+.step.info .dot{background:#7F56D9}
+.step.end .dot{background:var(--ink)}
+.step .body{min-width:0;padding-bottom:2px}
+.step .row1{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.step .title{font-weight:700;color:var(--ink)}
+.chip{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-radius:4px;padding:1px 6px;background:var(--brand-soft);color:var(--brand-600)}
+.step.ok .chip{background:var(--ok-soft);color:var(--ok)}
+.step.warn .chip{background:var(--err-soft);color:var(--err)}
+.step.wait .chip{background:var(--warn-soft);color:var(--warn)}
+.step.info .chip{background:#F1EBFC;color:#5B34B5}
+.step.end .chip{background:var(--line-soft);color:var(--ink)}
+.step .d{color:var(--fg);font-size:13.5px;margin-top:1px;white-space:pre-line}
+.step pre{margin:8px 0 0;font-family:var(--mono);font-size:11.5px;line-height:1.5;background:#F7F7FB;border:1px solid var(--line-soft);border-radius:var(--r-md);padding:10px 12px;overflow:auto;max-height:240px;color:#2B2D5C}
+.step.live .dot{box-shadow:0 0 0 4px rgba(201,148,0,.25)}
+.empty{padding:20px 16px;color:var(--muted)}
+.empty ol{margin:8px 0 0;padding-left:20px}
+.empty li{margin:4px 0}
+.summary{margin:14px 0 0 56px;border:1px solid var(--brand-200);background:var(--brand-soft);border-radius:var(--r-md);padding:10px 12px;font-size:13.5px;color:var(--ink)}
+/* Chat */
+.chat{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
+.tabs{display:flex;gap:4px;padding:8px 8px 0;border-bottom:1px solid var(--line-soft);overflow-x:auto}
+.tab{border:0;background:transparent;padding:8px 12px 10px;font-weight:600;font-size:13px;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--brand)}
+.tab .n{min-width:18px;height:18px;border-radius:9px;background:var(--err);color:#fff;font-size:11px;display:inline-grid;place-items:center;padding:0 5px}
+.chat-h{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+.av{width:36px;height:36px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.chat-h .nm{font-weight:700;color:var(--ink);line-height:1.2}
+.chat-h .sub{font-size:12px;color:var(--muted)}
+.chat-h .wa{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--ok);background:var(--ok-soft);border-radius:999px;padding:3px 9px}
+.msgs{flex:1;min-height:220px;overflow:auto;background:var(--chat-bg);padding:14px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:84%;padding:8px 11px 6px;border-radius:12px;box-shadow:0 1px 1px rgba(34,36,42,.08);white-space:pre-wrap;overflow-wrap:anywhere;font-size:13.5px}
+.msg.out{align-self:flex-end;background:var(--bubble-out);border-bottom-right-radius:4px;color:var(--ink)}
+.msg.in{align-self:flex-start;background:var(--bubble-in);border-bottom-left-radius:4px}
+.msg strong{font-weight:700}
+.msg .meta{display:flex;align-items:center;gap:6px;justify-content:flex-end;font-size:11px;color:var(--muted);margin-top:3px}
+.msg.out .from{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--brand-600);margin-bottom:2px}
+.ada{width:20px;height:20px;flex:none;display:block;object-fit:contain}
+.sys{align-self:center;font-size:12px;color:var(--muted);background:rgba(255,255,255,.7);border-radius:999px;padding:3px 10px;text-align:center}
+.typing{align-self:flex-end;display:flex;align-items:center;gap:8px;background:var(--bubble-out);border-radius:12px;padding:7px 11px;font-size:12px;color:var(--brand-600);font-weight:600}
+.typing .ada{width:30px;height:30px}
+.dots{display:inline-flex;gap:3px}
+.dots i{width:5px;height:5px;border-radius:50%;background:var(--brand);opacity:.35;animation:b 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,100%{opacity:.25}50%{opacity:1}}
+/* Adjunto dentro de un mensaje de ADA (video, PDF, link) */
+.vid{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--brand-200);border-radius:var(--r-md);padding:8px 10px;margin:6px 0 2px;white-space:normal}
+.vid .play{width:30px;height:30px;border-radius:50%;background:var(--brand);display:grid;place-items:center;flex:none}
+.vid .play::after{content:"";border-left:9px solid #fff;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px}
+.vid b{display:block;font-size:13px;color:var(--ink)}
+.vid small{display:block;font-size:11.5px;color:var(--muted);line-height:1.35}
+.vpend{display:inline-block;font-family:var(--mono);font-size:11.5px;border-radius:999px;padding:1px 8px;background:var(--warn-soft);color:var(--warn);border:1px solid #EED48A}
+.msg,.step,.typing{animation:pop .22s cubic-bezier(.2,0,0,1)}
+@keyframes pop{from{transform:translateY(4px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.msg,.step,.typing{animation:none}.dots i{animation:none;opacity:.7}.kv .v,.meter .fill{transition:none}}
+.qr{display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px 0;background:#fff}
+.qr button{border:1px solid var(--brand);color:var(--brand-600);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer}
+.qr button:hover{background:var(--brand-soft)}
+.qr button.ghost{border-color:var(--line);color:var(--muted)}
+.qr button:disabled{opacity:.5;cursor:not-allowed}
+.composer{display:flex;gap:8px;padding:10px 12px 12px;background:#fff;align-items:center;flex-wrap:wrap}
+.composer .as{flex-basis:100%;font-size:12px;color:var(--muted)}
+.composer .as b{color:var(--ink)}
+.composer input{flex:1;min-width:0;border:1px solid var(--line);border-radius:999px;padding:9px 14px}
+.composer input:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(76,59,239,.18)}
+.composer input:disabled{background:var(--bg)}
+.send{width:40px;height:40px;border-radius:50%;border:0;background:var(--brand);color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}
+.send:disabled{opacity:.45;cursor:not-allowed}
+footer{font-size:12px;color:var(--muted);padding-block:0 14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+/* Responsive */
+@media (min-width:1001px){
+  body{height:100%} main{overflow:hidden} .col{overflow:auto} .col.right{overflow:hidden} .chat{height:100%}
+  .col>.log-card{flex:1 1 0;min-height:240px}
+}
+@media (max-width:1000px){
+  html,body{height:auto}
+  main{flex:none;grid-template-columns:minmax(0,1fr)}
+  .col>.log-card,.col>.chat{flex:none}
+  .log{max-height:none} .msgs{max-height:60vh}
+}
+@media (max-width:560px){
+  .form,.visit{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .f.w2{grid-column:1/-1} .band .sep{display:none} .toggle{margin-left:0}
+}
+</style>
+<style>
+/* Tarjeta de pedido dentro de un mensaje de ADA */
+.ord{display:block;background:#fff;border:1px solid var(--brand-200);border-radius:var(--r-md);padding:8px 10px;margin:6px 0 4px;white-space:normal;font-size:12.5px;line-height:1.4}
+.ord .oh{display:block;font-weight:700;color:var(--ink);font-size:13px;margin-bottom:4px}
+.ord .ol{display:flex;justify-content:space-between;gap:10px;padding:2px 0;color:var(--fg)}
+.ord .ol span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+.ord .ol.pr{color:var(--ok)}
+.ord .ol.tot{border-top:1px solid var(--line-soft);margin-top:4px;padding-top:5px;font-weight:700;color:var(--ink)}
+.ord small{display:block;color:var(--muted);font-size:11.5px;margin-top:3px}
+@media (max-width:560px){details.api summary{flex-wrap:wrap}details.api summary h2{flex-basis:100%;order:-1}}
+</style>
+<header class="band"><div class="band-in">
+  <img class="logo" src="data:image/png;base64,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" alt="SimpliRoute">
+  <span class="sep" aria-hidden="true"></span>
+  <div class="titles"><span class="eyebrow">ADA · Consumo masivo · Gestión de cartera</span><h1>Toma de pedidos y venta proactiva</h1></div>
+  <span class="spacer"></span>
+  <span class="badge-sim clock" id="clock"></span>
+  <span class="badge-sim">Simulación con datos de ejemplo</span>
+</div></header>
+<main>
+  <div class="col left">
+    <details class="card api" open>
+      <summary><span class="api-pill">Calendario de cartera</span><h2>Gestión del cliente</h2><span class="api-pill off" id="engine">Conectando IA…</span>
+        <svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg></summary>
+      <form class="form" id="form" autocomplete="off">
+        <div class="f w2"><label for="preset">Ejemplo rápido</label><select id="preset"></select></div>
+        <div class="f w2"><label>Qué muestra</label><div class="desc" id="presetDesc"></div></div>
+        <div class="form-actions">
+          <button class="btn primary" type="submit" id="go"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11L12 7z" fill="currentColor"/></svg> Iniciar gestión</button>
+          <button class="btn" type="button" id="reset">Reiniciar</button>
+          <label class="toggle"><input type="checkbox" id="precise"> IA precisa</label>
+        </div>
+      </form>
+    </details>
+    <section class="card"><div class="card-h"><h2>Pedido en curso</h2><span class="hint" id="objHint"></span></div><div class="visit" id="obj"></div></section>
+    <section class="card log-card"><div class="card-h"><h2>Registro de ejecución</h2><span class="hint" id="logHint">0 pasos</span></div><ol class="log" id="log"></ol></section>
+  </div>
+  <div class="col right">
+    <section class="card chat" aria-label="Conversaciones de WhatsApp">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="chat-h" id="chatHead"></div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="qr" id="qr" hidden></div>
+      <form class="composer" id="composer" autocomplete="off">
+        <span class="as" id="asWho"></span>
+        <input id="text" placeholder="Escribe una respuesta…" aria-label="Mensaje" disabled>
+        <button class="send" id="sendBtn" type="submit" aria-label="Enviar" disabled><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 9l14-7-5 15-2.5-6z" fill="currentColor"/></svg></button>
+      </form>
+    </section>
+  </div>
+</main>
+<footer>Mockup de Toma de pedidos y venta proactiva para una distribuidora de consumo masivo: ADA contacta a la cartera según su calendario, toma el pedido con stock y promociones vigentes, ofrece upsell, lo dispara a distribución en SimpliRoute y escala al supervisor. En el caso el canal principal es la llamada; aquí la conversación se muestra por WhatsApp. Los datos son de ejemplo.</footer>
+<script>
+(function(){
+const ADA = `<img class="ada" alt="" src="data:image/webp;base64,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">`;
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const hm = m => { m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m/60)) + ':' + pad(m%60); };
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const r2 = n => Math.round(n * 100) / 100;
+const money = n => { n = r2(n); return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 }); };
+
+/* ===== FLUJO: datos de negocio (ficticios) ===== */
+const EMPRESA = 'Distribuidora Altamar';
+const FECHA = 'Mar 10 nov';
+const ENTREGA = 'mié 11 nov';
+const CATALOG = {
+  'REF-600': { nombre: 'Refresco Cola Burbuja 600 ml', corto: 'Refresco Cola', marca: 'Burbuja', unidad: 'caja de 24', precio: 312, stock: 180 },
+  'AGU-1L':  { nombre: 'Agua natural Manantial 1 L', corto: 'Agua 1 L', marca: 'Manantial', unidad: 'caja de 12', precio: 96, stock: 240 },
+  'PAP-45':  { nombre: 'Papas sal Crujis 45 g', corto: 'Papas Crujis', marca: 'Crujis', unidad: 'caja de 20', precio: 230, stock: 64 },
+  'GAL-CHO': { nombre: 'Galletas chocolate Sol', corto: 'Galletas Sol', marca: 'Sol', unidad: 'caja de 12 paquetes', precio: 186, stock: 90 },
+  'JUG-NAR': { nombre: 'Jugo naranja Citrus 1 L', corto: 'Jugo naranja', marca: 'Citrus', unidad: 'caja de 12', precio: 264, stock: 120 },
+  'JUG-MAN': { nombre: 'Jugo mango Citrus 1 L', corto: 'Jugo mango', marca: 'Citrus', unidad: 'caja de 12', precio: 264, stock: 75 },
+  'ENE-473': { nombre: 'Bebida energética Volt 473 ml', corto: 'Volt', marca: 'Volt', unidad: 'caja de 12', precio: 348, stock: 40 },
+  'DET-1K':  { nombre: 'Detergente Limpio 1 kg', corto: 'Detergente', marca: 'Limpio', unidad: 'caja de 10', precio: 415, stock: 55 },
+};
+const PROMOS = {
+  'COMBO-BC':  { nombre: 'Combo Burbuja + Crujis', condicion: 'Por cada 2 cajas de Refresco Cola Burbuja, 1 caja de Papas Crujis con 15% de descuento', vigencia: 'hasta el 15 de noviembre' },
+  'AGUA-6x5':  { nombre: 'Manantial 6x5', condicion: 'Lleva 6 cajas de Agua Manantial 1 L y paga 5', vigencia: 'hasta el 30 de noviembre' },
+  'VOLT-LANZ': { nombre: 'Lanzamiento Volt', condicion: '10% de descuento en la primera compra de Bebida energética Volt, hasta 3 cajas', vigencia: 'hasta el 20 de noviembre' },
+};
+const DIR = { minimo: 1500, descMaxPct: 3, descUmbral: 6000, maxOfertas: 2, ventana: '09:00–19:00', reintentoMin: 120, maxReintentos: 2 };
+const ESC = ['reclamo','descuento_fuera_limite','condiciones_pago','cuestiona_precio','cambio_post_confirmacion','falla_sistema'];
+const MOTIVO = { reclamo: 'Reclamo por producto o entrega', descuento_fuera_limite: 'Descuento fuera de los límites del agente', condiciones_pago: 'Cambio en condiciones de pago', cuestiona_precio: 'El cliente cuestiona el precio', cambio_post_confirmacion: 'Cambio a un pedido ya enviado a distribución', falla_sistema: 'Falla de sistema' };
+
+const CONTACTS = {
+  principal: { tab: 'Cliente', name: () => S.sc.cliente.contacto, sub: () => S.sc.cliente.nombre + ' · ' + S.sc.cliente.telefono, responde: true },
+  escalamiento: { tab: 'Supervisor de ventas', name: () => 'Supervisor de ventas', ini: 'SV', sub: () => 'Destino por definir: llamada o ticket', responde: false },
+};
+const FIRMA = 'ADA · Ventas ' + EMPRESA;
+
+const SCENARIOS = [
+  { id: 'lupita', name: 'Abarrotes Doña Lupita · pedido habitual con combo',
+    desc: 'Camino feliz: confirma su pedido de siempre, ADA ofrece el combo y el lanzamiento Volt, y dispara el pedido a distribución.',
+    cliente: { id: 'CL-10482', nombre: 'Abarrotes Doña Lupita', contacto: 'Guadalupe Ramírez', trato: 'Doña Lupita', telefono: '+52 81 5550 2147', segmento: 'Abarrotes', ruta: 'Ruta 3 · Monterrey Centro', direccion: 'Calle Padre Mier 812, Centro, Monterrey, N.L.', frecuencia: 'Semanal (martes)', pago: 'Contado', compro_volt: false, ultimo: '3 nov', ticket_prom: 2380 },
+    habitual: { 'REF-600': 4, 'AGU-1L': 3, 'GAL-CHO': 2 },
+    quick: ['Sí, lo mismo de siempre', 'Sí, agrégame el combo', 'Ponme 6 cajas de agua', '¿Tienen leche?', 'Así está bien, confírmalo', 'Gracias'] },
+  { id: 'faro', name: 'Mini súper El Faro · producto agotado',
+    desc: 'El jugo de naranja habitual no tiene stock: ADA lo saca del pedido y ofrece el de mango como sustituto antes del upsell.',
+    cliente: { id: 'CL-11307', nombre: 'Mini súper El Faro', contacto: 'Ricardo Treviño', trato: 'Don Ricardo', telefono: '+52 81 5550 7731', segmento: 'Mini súper', ruta: 'Ruta 5 · San Nicolás', direccion: 'Av. Diego Díaz de Berlanga 340, San Nicolás de los Garza, N.L.', frecuencia: 'Semanal (martes)', pago: 'Contado', compro_volt: true, ultimo: '3 nov', ticket_prom: 2950 },
+    habitual: { 'JUG-NAR': 3, 'AGU-1L': 4, 'GAL-CHO': 2, 'REF-600': 3 }, stock: { 'JUG-NAR': 0 },
+    quick: ['Sí, mándame 3 de mango', '¿Cuándo vuelve a haber de naranja?', 'Agrégale 2 cajas de Volt', 'Confírmalo así', 'Gracias'] },
+  { id: 'esquina', name: 'Tienda La Esquina · pide descuento',
+    desc: 'Pedido grande: ADA aplica hasta 3% adicional dentro de las directrices y escala si piden más descuento o crédito.',
+    cliente: { id: 'CL-09815', nombre: 'Tienda La Esquina', contacto: 'Martha Garza', trato: 'Sra. Martha', telefono: '+52 81 5550 4408', segmento: 'Abarrotes', ruta: 'Ruta 2 · Guadalupe', direccion: 'Av. Benito Juárez 1215, Guadalupe, N.L.', frecuencia: 'Semanal (martes)', pago: 'Contado', compro_volt: true, ultimo: '3 nov', ticket_prom: 6120 },
+    habitual: { 'REF-600': 12, 'AGU-1L': 6, 'PAP-45': 4, 'DET-1K': 3 },
+    quick: ['¿Me haces un descuento?', 'Necesito 10% de descuento o no pido', '¿Me lo dejas a crédito a 30 días?', 'Así está bien, confírmalo'] },
+  { id: 'ruiz', name: 'Abarrotes Hnos. Ruiz · reclamo del pedido anterior',
+    desc: 'Antes de pedir, el cliente reporta producto dañado: ADA no negocia el reclamo, guarda el pedido en borrador y escala con ticket.',
+    cliente: { id: 'CL-10950', nombre: 'Abarrotes Hnos. Ruiz', contacto: 'Jorge Ruiz', trato: 'Don Jorge', telefono: '+52 81 5550 9162', segmento: 'Abarrotes', ruta: 'Ruta 3 · Monterrey Centro', direccion: 'Calle Washington 455, Centro, Monterrey, N.L.', frecuencia: 'Semanal (martes)', pago: 'Crédito 15 días', compro_volt: false, ultimo: '3 nov', ticket_prom: 2710 },
+    habitual: { 'REF-600': 6, 'PAP-45': 3, 'GAL-CHO': 3, 'AGU-1L': 2 },
+    quick: ['El pedido pasado llegaron 2 cajas de galletas aplastadas', 'Está muy caro el refresco, ya subió', 'Esta semana no voy a pedir, tengo inventario', 'Sí, lo mismo de siempre'] },
+  { id: 'vaquita', name: 'Cremería La Vaquita · ya la atendió el operador',
+    desc: 'Convivencia con operadores en ruta: el vendedor ya tomó el pedido hoy, así que ADA no contacta al cliente.',
+    cliente: { id: 'CL-12044', nombre: 'Cremería La Vaquita', contacto: 'Sofía Leal', trato: 'Sra. Sofía', telefono: '+52 81 5550 3386', segmento: 'Cremería', ruta: 'Ruta 4 · Apodaca', direccion: 'Av. Miguel Alemán 2210, Apodaca, N.L.', frecuencia: 'Semanal (martes)', pago: 'Contado', compro_volt: false, ultimo: '3 nov', ticket_prom: 1820, operador: { nombre: 'Luis Cantú', pedido: 'PV-26-120431', hora: '08:40' } },
+    habitual: { 'REF-600': 2, 'GAL-CHO': 3, 'AGU-1L': 4 },
+    quick: [] },
+];
+
+const S = { gen: 0, sc: null, started: false, status: 'idle', busy: false, steps: 0, simMin: 600,
+  chats: {}, unread: {}, active: 'principal', typing: null, transcript: [],
+  cart: {}, base: {}, baseTotal: 0, pct: 0, offers: [], pending: null, folio: null, visita: null, retries: 0, outcome: '', agotados: [], prevKV: {} };
+let sample = null;
+const now = () => hm(S.simMin);
+const stock = sku => (S.sc.stock && sku in S.sc.stock) ? S.sc.stock[sku] : CATALOG[sku].stock;
+
+/* ===== FLUJO: cálculo del pedido (todos los importes salen de aquí) ===== */
+function calc(cart, pct) {
+  cart = cart || S.cart; pct = pct == null ? S.pct : pct;
+  const q = s => cart[s] || 0;
+  const lines = Object.keys(cart).filter(s => cart[s] > 0).map(s => ({ sku: s, nombre: CATALOG[s].nombre, cant: cart[s], precio: CATALOG[s].precio, importe: cart[s] * CATALOG[s].precio }));
+  const subtotal = lines.reduce((a, l) => a + l.importe, 0);
+  const promos = [];
+  const nC = Math.min(Math.floor(q('REF-600') / 2), q('PAP-45'));
+  if (nC > 0) promos.push({ id: 'COMBO-BC', nombre: PROMOS['COMBO-BC'].nombre, detalle: nC + ' caja(s) de papas al 15%', monto: r2(nC * CATALOG['PAP-45'].precio * 0.15) });
+  const nA = Math.floor(q('AGU-1L') / 6);
+  if (nA > 0) promos.push({ id: 'AGUA-6x5', nombre: PROMOS['AGUA-6x5'].nombre, detalle: nA + ' caja(s) sin cargo', monto: r2(nA * CATALOG['AGU-1L'].precio) });
+  if (!S.sc.cliente.compro_volt) { const nV = Math.min(q('ENE-473'), 3); if (nV > 0) promos.push({ id: 'VOLT-LANZ', nombre: PROMOS['VOLT-LANZ'].nombre, detalle: nV + ' caja(s) al 10%', monto: r2(nV * CATALOG['ENE-473'].precio * 0.10) }); }
+  const descPromo = r2(promos.reduce((a, p) => a + p.monto, 0));
+  const neto = r2(subtotal - descPromo);
+  const descAdic = pct ? r2(neto * pct / 100) : 0;
+  const total = r2(neto - descAdic);
+  const cajas = lines.reduce((a, l) => a + l.cant, 0);
+  return { lines, subtotal, promos, descPromo, neto, pct, descAdic, total, cajas };
+}
+function offerFor(id, cart) {
+  cart = cart || S.cart; const q = s => cart[s] || 0;
+  if (id === 'COMBO-BC') { const t = Math.min(Math.floor(q('REF-600') / 2), stock('PAP-45')); return t > q('PAP-45') ? { id, sku: 'PAP-45', cant: t, motivo: 'Prioridad 1 de las directrices: compra Refresco Cola y le faltan cajas de papas para aprovechar el combo.' } : null; }
+  if (id === 'VOLT-LANZ') return (!S.sc.cliente.compro_volt && q('ENE-473') === 0 && stock('ENE-473') > 0) ? { id, sku: 'ENE-473', cant: 2, motivo: 'Prioridad 2: lanzamiento Volt, el cliente nunca lo ha comprado.' } : null;
+  if (id === 'AGUA-6x5') { const a = q('AGU-1L'); return (a % 6 >= 4) ? { id, sku: 'AGU-1L', cant: a + 6 - a % 6, motivo: 'Le faltan pocas cajas para la promoción 6x5.' } : null; }
+  if (id === 'SUST-MANGO') return stock('JUG-MAN') > 0 ? { id, sku: 'JUG-MAN', cant: Math.min(S.sc.habitual['JUG-NAR'] || 3, stock('JUG-MAN')), motivo: 'Sustituto de la misma marca y precio para el jugo naranja agotado.' } : null;
+  return null;
+}
+const offerName = id => PROMOS[id] ? PROMOS[id].nombre : 'Sustituto: Jugo mango Citrus';
+function upsellCandidate(cart) {
+  if (S.offers.length >= DIR.maxOfertas) return null;
+  for (const id of ['COMBO-BC', 'VOLT-LANZ', 'AGUA-6x5']) { if (S.offers.some(o => o.id === id)) continue; const o = offerFor(id, cart); if (o) return o; }
+  return null;
+}
+const upsellDone = () => S.offers.some(o => o.id !== 'SUST-MANGO');
+function offerText(o, cart) {
+  cart = cart || S.cart; const q = s => cart[s] || 0;
+  if (o.id === 'COMBO-BC') { const add = o.cant - q('PAP-45'); return `Aprovechando que lleva *${q('REF-600')} cajas de Refresco Cola*, esta semana tenemos el *Combo Burbuja + Crujis*: por cada 2 cajas de refresco, 1 caja de Papas Crujis con 15% de descuento. ¿Le agrego ${add} caja${add > 1 ? 's' : ''} de papas para completar el combo?`; }
+  if (o.id === 'VOLT-LANZ') return `Le cuento que llegó la *Bebida energética Volt 473 ml* (${money(CATALOG['ENE-473'].precio)} la caja de 12) con 10% de descuento en su primera compra. ¿Le agrego 2 cajas para probarla en su tienda?`;
+  if (o.id === 'AGUA-6x5') return `Con *${o.cant} cajas de Agua Manantial* le aplica la promo *6x5*: una caja le sale sin cargo. ¿Se las dejo en ${o.cant}?`;
+  return '';
+}
+
+/* ===== Registro ===== */
+const KIND = { trigger:'Disparador', in:'Entrada', ok:'Consulta', action:'Acción', info:'Regla', ai:'IA', wait:'En espera', warn:'Alerta', end:'Cierre' };
+function tick() { $('clock').textContent = FECHA + ' · ' + now(); }
+function log(kind, title, d, code, chip) {
+  tick();
+  const ol = $('log'); ol.querySelector('.empty')?.remove(); ol.querySelectorAll('.live').forEach(n => n.classList.remove('live'));
+  S.steps++;
+  const cls = kind === 'ai' ? 'info' : kind === 'in' ? 'trigger' : kind;
+  const li = document.createElement('li'); li.className = 'step ' + cls + (kind === 'wait' ? ' live' : '');
+  const icon = { ok:'✓', warn:'!', end:'■' }[cls] || S.steps;
+  li.innerHTML = `<span class="t">${now()}</span><span class="dot">${icon}</span><div class="body"><div class="row1"><span class="title"></span><span class="chip">${chip || KIND[kind]}</span></div><div class="d"></div>${code ? '<pre></pre>' : ''}</div><span class="rail" aria-hidden="true"></span>`;
+  li.querySelector('.title').textContent = title; li.querySelector('.d').textContent = d || '';
+  if (code) li.querySelector('pre').textContent = typeof code === 'string' ? code : JSON.stringify(code, null, 2);
+  ol.appendChild(li); ol.scrollTop = ol.scrollHeight; $('logHint').textContent = `${S.steps} pasos`; return li;
+}
+function summary(t) { const ol = $('log'), s = document.createElement('li'); s.className = 'summary'; s.textContent = t; ol.appendChild(s); ol.scrollTop = ol.scrollHeight; }
+function emptyLog() { $('log').innerHTML = `<li class="empty"><div class="caps">Qué hace ADA</div><ol>
+  <li><b>Lee</b> el calendario de cartera y el historial del cliente.</li>
+  <li><b>Valida</b> stock por marca, promociones vigentes y directrices comerciales.</li>
+  <li><b>Propone</b> el pedido habitual y ofrece upsell con stock disponible.</li>
+  <li><b>Confirma</b> el pedido, lo registra y crea la visita en SimpliRoute.</li>
+  <li><b>Escala</b> al supervisor reclamos, descuentos o condiciones fuera de límite.</li></ol></li>`; $('logHint').textContent = '0 pasos'; }
+
+/* ===== Chat ===== */
+function renderTabs() {
+  $('tabs').innerHTML = Object.keys(CONTACTS).map(c => `<button class="tab" role="tab" type="button" aria-selected="${S.active===c}" data-c="${c}">${CONTACTS[c].tab}${S.unread[c] ? `<span class="n">${S.unread[c]}</span>` : ''}</button>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => setActive(b.dataset.c));
+}
+const initials = n => n.split(/\s+/).map(w => w[0]).join('').slice(0,2).toUpperCase();
+function renderChat() {
+  const c = S.active, info = CONTACTS[c];
+  $('chatHead').innerHTML = `<span class="av"></span><div><div class="nm"></div><div class="sub"></div></div><span class="wa">WhatsApp</span>`;
+  $('chatHead').querySelector('.av').textContent = info.ini || initials(info.name());
+  $('chatHead').querySelector('.nm').textContent = info.name(); $('chatHead').querySelector('.sub').textContent = info.sub();
+  const box = $('msgs'); box.innerHTML = '';
+  if (!S.chats[c].length) { const e = document.createElement('div'); e.className = 'sys'; e.textContent = S.started ? 'Sin mensajes en esta conversación.' : 'La conversación aparece cuando corre el flujo.'; box.appendChild(e); }
+  S.chats[c].forEach(m => box.appendChild(bubble(m)));
+  if (S.typing === c) { const t = document.createElement('div'); t.className = 'typing'; t.innerHTML = `${ADA}<span>ADA está escribiendo</span><span class="dots"><i></i><i></i><i></i></span>`; box.appendChild(t); }
+  box.scrollTop = box.scrollHeight; renderQuick(); renderTabs();
+}
+function fmt(text) {
+  return esc(text).replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
+    .replace(/\n?\[\[(\w+):([A-Za-z0-9_-]+)\]\]\n?/g, (m, tipo, id) => renderAttachment(tipo, id));
+}
+function renderAttachment(tipo, id) {
+  if (tipo !== 'PEDIDO') return '';
+  if (id === 'final' && !S.folio) id = 'actual';
+  const o = calc(), c = S.sc.cliente;
+  if (!o.lines.length) return '<span class="vpend">Pedido sin productos</span>';
+  const head = id === 'final' ? `Pedido ${S.folio} · confirmado` : (JSON.stringify(S.cart) === JSON.stringify(S.base) ? 'Pedido sugerido' : 'Pedido actualizado');
+  let h = `<span class="ord"><b class="oh">${esc(head)}</b>`;
+  o.lines.forEach(l => { h += `<span class="ol"><span>${l.cant} × ${esc(l.nombre)}</span><span>${money(l.importe)}</span></span>`; });
+  o.promos.forEach(p => { h += `<span class="ol pr"><span>${esc(p.nombre)} (${esc(p.detalle)})</span><span>−${money(p.monto)}</span></span>`; });
+  if (o.descAdic) h += `<span class="ol pr"><span>Descuento adicional ${o.pct}%</span><span>−${money(o.descAdic)}</span></span>`;
+  h += `<span class="ol tot"><span>Total · ${o.cajas} cajas</span><span>${money(o.total)}</span></span>`;
+  h += `<small>Entrega ${ENTREGA} · ${esc(c.ruta)} · Pago: ${esc(c.pago.toLowerCase())}</small></span>`;
+  return h;
+}
+function bubble(m) {
+  const d = document.createElement('div');
+  if (m.dir === 'sys') { d.className = 'sys'; d.textContent = m.text; return d; }
+  d.className = 'msg ' + m.dir;
+  if (m.dir === 'out') { const f = document.createElement('div'); f.className = 'from'; f.innerHTML = ADA + `<span>${esc(FIRMA)}</span>`; d.appendChild(f); }
+  const b = document.createElement('span'); if (m.dir === 'out') b.innerHTML = m.html; else b.textContent = m.text; d.appendChild(b);
+  const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = m.time + (m.dir === 'out' ? ' ✓✓' : ''); d.appendChild(meta); return d;
+}
+function setActive(c) { S.active = c; S.unread[c] = 0; renderChat(); }
+function push(c, m) { S.chats[c].push(m); if (c !== S.active) S.unread[c]++; renderChat(); }
+async function say(c, text) {
+  const g = S.gen; S.typing = c; renderChat(); await sleep(Math.min(1400, 450 + text.length * 4)); if (g !== S.gen) throw 'stale';
+  S.typing = null; push(c, { dir: 'out', text, html: fmt(text), time: now() });
+  if (c === 'principal') S.transcript.push({ who: 'ADA', text }); await sleep(200);
+}
+function sys(c, text) { push(c, { dir: 'sys', text }); }
+const canReply = () => CONTACTS[S.active].responde && (S.status === 'waiting' || S.status === 'resolved') && !S.busy;
+function renderQuick() {
+  const qr = $('qr'); qr.innerHTML = ''; const can = canReply();
+  const show = CONTACTS[S.active].responde && (S.status === 'waiting' || S.status === 'resolved');
+  if (show) {
+    (S.sc.quick || []).forEach(o => { const b = document.createElement('button'); b.type = 'button'; b.textContent = o; b.disabled = !can; b.onclick = () => send(o); qr.appendChild(b); });
+    const g = document.createElement('button'); g.type = 'button'; g.className = 'ghost'; g.textContent = 'Simular que no responde'; g.disabled = !can; g.onclick = noReply; qr.appendChild(g);
+  }
+  qr.hidden = !show; $('text').disabled = !can; $('sendBtn').disabled = !can;
+  const as = $('asWho');
+  if (show) { as.innerHTML = 'Respondes como <b></b>'; as.querySelector('b').textContent = CONTACTS[S.active].name() + ' (' + S.sc.cliente.nombre + ')'; }
+  else as.textContent = !CONTACTS[S.active].responde ? 'Vista de solo lectura en esta simulación.' : S.status === 'escalated' ? 'La conversación pasó al supervisor: ADA ya no responde.' : S.status === 'closed' ? 'La gestión de este cliente terminó.' : 'Esta conversación no espera respuesta ahora.';
+}
+
+/* ===== Estado del pedido ===== */
+function renderState() {
+  const c = S.sc.cliente, o = calc();
+  const est = { idle: 'Por contactar', waiting: 'Esperando al cliente', resolved: S.folio ? 'Confirmado' : 'Cerrado sin pedido', escalated: 'Escalado al supervisor', closed: S.outcome || 'Cerrado' }[S.status];
+  const diff = r2(o.total - S.baseTotal);
+  const kv = [
+    ['Cliente', c.nombre], ['Segmento · ruta', c.segmento + ' · ' + c.ruta], ['Entrega', ENTREGA + ' · ' + c.pago], ['Estado', est],
+    ['Subtotal', S.started ? money(o.subtotal) : '—'], ['Promociones', S.started ? (o.descPromo ? '−' + money(o.descPromo) : '$0') : '—'],
+    ['Total', S.started ? money(o.total) + (o.pct ? ` (−${o.pct}%)` : '') : '—'], ['Vs. sugerido', S.started && S.baseTotal ? (diff > 0 ? '+' + money(diff) : diff < 0 ? '−' + money(-diff) : 'Sin cambio') : '—'],
+  ];
+  let h = kv.map(([k, v]) => `<div class="kv"><div class="k">${esc(k)}</div><div class="v" data-k="${esc(k)}">${esc(v)}</div></div>`).join('');
+  if (S.started && o.lines.length) {
+    const max = Math.max(o.total, c.ticket_prom, DIR.minimo) * 1.15;
+    const pct = v => Math.min(100, v / max * 100).toFixed(1);
+    h += `<div class="meter${o.total < DIR.minimo ? ' low' : ''}" role="img" aria-label="Total ${money(o.total)}; mínimo ${money(DIR.minimo)}; ticket promedio ${money(c.ticket_prom)}"><span class="fill" style="width:${pct(o.total)}%"></span><span class="tick" style="left:${pct(DIR.minimo)}%"><i>Mín. ${money(DIR.minimo)}</i></span><span class="tick" style="left:${pct(c.ticket_prom)}%"><i>Prom. ${money(c.ticket_prom)}</i></span></div>`;
+  }
+  let tags = '';
+  if (S.folio) tags += `<span class="tag ok">${esc(S.folio)}</span>`;
+  if (S.visita) tags += `<span class="tag ok">Visita SR ${esc(S.visita)}</span>`;
+  o.lines.forEach(l => { tags += `<span class="tag brand">${l.cant}× ${esc(CATALOG[l.sku].corto)}</span>`; });
+  S.agotados.forEach(s => { tags += `<span class="tag err">Agotado: ${esc(CATALOG[s].corto)}</span>`; });
+  S.offers.forEach(of => { const cl = { aceptada: 'ok', rechazada: 'err', pendiente: 'warn' }[of.estado] || ''; tags += `<span class="tag ${cl}">${esc(offerName(of.id))} · ${of.estado}</span>`; });
+  if (o.pct) tags += `<span class="tag warn">Desc. adicional ${o.pct}%</span>`;
+  h += `<div class="tags">${tags}</div>`;
+  $('obj').innerHTML = h; $('objHint').textContent = c.id;
+  $('obj').querySelectorAll('.v').forEach(el => { const k = el.dataset.k; if (S.prevKV[k] !== undefined && S.prevKV[k] !== el.textContent) { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 700); } S.prevKV[k] = el.textContent; });
+}
+
+/* ===== Ejecución ===== */
+async function run(fn) { S.busy = true; renderQuick(); const g = S.gen; try { await fn(g); } catch (e) { if (e !== 'stale') console.error(e); } finally { if (g === S.gen) { S.busy = false; renderChat(); } } }
+function reset() {
+  S.gen++; S.sc = SCENARIOS[+$('preset').value]; S.started = false; S.busy = false; S.steps = 0; S.typing = null; S.status = 'idle'; S.transcript = [];
+  S.simMin = 600; S.cart = {}; S.base = {}; S.baseTotal = 0; S.pct = 0; S.offers = []; S.pending = null; S.folio = null; S.visita = null; S.retries = 0; S.outcome = ''; S.agotados = []; S.prevKV = {};
+  S.chats = {}; S.unread = {}; Object.keys(CONTACTS).forEach(c => { S.chats[c] = []; S.unread[c] = 0; }); S.active = 'principal';
+  $('presetDesc').textContent = S.sc.desc; $('go').disabled = false; tick(); emptyLog(); renderState(); renderChat();
+}
+async function start(g) {
+  S.started = true; $('go').disabled = true; const c = S.sc.cliente;
+  const step = async (...a) => { log(...a); renderState(); await sleep(380); if (g !== S.gen) throw 'stale'; };
+  await step('trigger', 'Calendario de gestión de cartera', `${c.nombre} tiene visita de ruta mañana (${c.frecuencia.toLowerCase()}). Ventana de contacto ${DIR.ventana}: dentro de horario.`, { cliente_id: c.id, ruta: c.ruta, fecha_gestion: '2026-11-10', hora_local: now(), zona_horaria: 'America/Monterrey' });
+  await step('ok', 'Consultar historial del cliente', `Último pedido: ${c.ultimo}. Ticket promedio ${money(c.ticket_prom)}. Condiciones de pago: ${c.pago.toLowerCase()}.`,
+    { request: `GET /erp/clientes/${c.id}/historial`, response: { ultimo_pedido: c.ultimo, ticket_promedio: c.ticket_prom, frecuencia: c.frecuencia, condiciones_pago: c.pago, productos_habituales: S.sc.habitual, compro_volt: c.compro_volt } });
+  if (c.operador) {
+    await step('info', 'Regla: cliente ya gestionado hoy', `El operador en ruta ${c.operador.nombre} tomó el pedido ${c.operador.pedido} a las ${c.operador.hora}. ADA no contacta para no duplicar la gestión.`, { regla: 'deduplicar con operadores en ruta (propuesta a confirmar)', gestion_existente: { operador: c.operador.nombre, pedido: c.operador.pedido, hora: c.operador.hora } });
+    await step('action', 'Registrar gestión', 'Resultado: gestionado por operador. No se envía mensaje al cliente.', { request: 'POST /crm/gestiones', body: { cliente_id: c.id, resultado: 'gestionado_por_operador', pedido_id: c.operador.pedido, canal: null } }, 'Registro');
+    log('end', 'Sin contacto', 'Criterio RESUELTO: el cliente ya tiene pedido para mañana.');
+    summary(`${c.nombre} ya tenía pedido (${c.operador.pedido}) tomado por el operador ${c.operador.nombre}. ADA no escribió al cliente y dejó registro de la gestión para el reporte diario.`);
+    S.status = 'closed'; S.outcome = 'Gestionado por operador'; sys('principal', 'ADA no envió mensajes: el operador en ruta ya tomó el pedido hoy.'); renderState(); return;
+  }
+  await step('info', 'Regla: operador en ruta', 'Ningún operador gestionó a este cliente hoy: ADA toma la gestión.', null);
+  const skus = [...new Set(Object.keys(S.sc.habitual).concat(['PAP-45', 'ENE-473', 'JUG-MAN']))];
+  const st = {}; skus.forEach(s => st[s] = stock(s));
+  S.agotados = Object.keys(S.sc.habitual).filter(s => stock(s) === 0);
+  await step('ok', 'Consultar stock por marca', `Bodega Monterrey. ${S.agotados.length ? S.agotados.length + ' producto habitual sin stock.' : 'Todos los productos habituales tienen stock.'}`, { request: 'GET /inventario/stock?bodega=MTY-01&skus=' + skus.join(','), response: st });
+  for (const s of S.agotados) await step('warn', 'Sin stock: ' + CATALOG[s].nombre, 'Se excluye del pedido sugerido y se busca un sustituto de la misma marca.', null);
+  const promos = Object.keys(PROMOS).map(id => ({ id, ...PROMOS[id], aplica_al_cliente: id === 'VOLT-LANZ' ? !c.compro_volt : true }));
+  await step('ok', 'Consultar promociones y directrices', `${promos.length} promociones vigentes. Mínimo de pedido ${money(DIR.minimo)}; descuento adicional máx. ${DIR.descMaxPct}% con pedido ≥ ${money(DIR.descUmbral)}; máx. ${DIR.maxOfertas} ofertas por conversación.`,
+    { promociones: promos, directrices: { monto_minimo: DIR.minimo, descuento_adicional_max_pct: DIR.descMaxPct, umbral_descuento: DIR.descUmbral, prioridad_upsell: ['COMBO-BC', 'VOLT-LANZ', 'AGUA-6x5'], max_ofertas: DIR.maxOfertas, condiciones_pago: 'no negociables por el agente', estado: 'propuesta a confirmar' } });
+  Object.keys(S.sc.habitual).forEach(s => { const q = Math.min(S.sc.habitual[s], stock(s)); if (q > 0) S.cart[s] = q; });
+  S.base = { ...S.cart }; const o = calc(); S.baseTotal = o.total;
+  await step('info', 'Armar pedido sugerido', `${o.cajas} cajas · ${money(o.total)} con promociones aplicadas.`, { lineas: o.lines.map(l => ({ sku: l.sku, cajas: l.cant, importe: l.importe })), subtotal: o.subtotal, promociones: o.promos, total: o.total });
+  const sust = S.agotados.includes('JUG-NAR') ? offerFor('SUST-MANGO') : null;
+  const up = upsellCandidate();
+  await step('info', 'Priorizar oferta', sust ? `Primero el sustituto (${CATALOG[sust.sku].nombre}); después ${up ? offerName(up.id) : 'sin upsell'}.` : up ? `Upsell a ofrecer tras su respuesta: ${offerName(up.id)}. ${up.motivo}` : 'Sin upsell aplicable con el stock actual.', { sustituto: sust, upsell: up, max_ofertas: DIR.maxOfertas });
+  let txt = `Hola, *${c.trato}*. Soy ADA, asistente de pedidos de ${EMPRESA}. Mañana miércoles pasa nuestra ruta por su negocio y le preparé su pedido de siempre:\n[[PEDIDO:actual]]\n`;
+  if (sust) { txt += `El *Jugo naranja Citrus* está agotado por ahora. Tenemos *Jugo mango Citrus 1 L* al mismo precio (${money(CATALOG['JUG-MAN'].precio)} la caja). ¿Le pongo ${sust.cant} cajas en su lugar?`; S.offers.push({ ...sust, estado: 'pendiente' }); S.pending = S.offers[S.offers.length - 1]; }
+  else txt += '¿Se lo confirmo así o quiere cambiar algo?';
+  await say('principal', txt);
+  log('action', 'Enviar WhatsApp', 'Pedido sugerido enviado con plantilla aprobada' + (sust ? ' y sustituto ofrecido.' : '.'), { to: c.telefono, plantilla: 'pedido_sugerido_semanal', variables: { trato: c.trato, entrega: ENTREGA, total: money(o.total) } });
+  log('wait', 'Esperando respuesta', `Si no responde, reintento a las ${hm(S.simMin + DIR.reintentoMin)} (regla propuesta: ${DIR.maxReintentos} reintentos cada 2 h).`);
+  S.status = 'waiting'; renderState();
+}
+function noReply() {
+  if (!canReply()) return;
+  run(async g => {
+    const c = S.sc.cliente;
+    if (S.status === 'resolved') { log('end', 'Conversación cerrada', 'El cliente no volvió a escribir; la gestión ya estaba cerrada.'); S.status = 'closed'; S.outcome = S.folio ? 'Confirmado' : 'Cerrado sin pedido'; renderState(); return; }
+    S.retries++; S.simMin += DIR.reintentoMin;
+    log('trigger', 'Reloj simulado: ' + now(), 'Sin respuesta desde el último mensaje.');
+    if (S.retries <= DIR.maxReintentos) {
+      log('info', `Regla de reintento ${S.retries} de ${DIR.maxReintentos}`, `Dentro de la ventana ${DIR.ventana}. Se envía un recordatorio corto (propuesta a confirmar).`, null);
+      await sleep(300); if (g !== S.gen) throw 'stale';
+      await say('principal', S.retries === 1 ? `${c.trato}, le recuerdo su pedido para mañana. Si me confirma hoy, lo subimos a la ruta. ¿Se lo dejo así?` : `${c.trato}, es mi último recordatorio por hoy para el pedido de mañana. Si prefiere, su vendedor lo revisa con usted en la visita.`);
+      log('action', 'Enviar WhatsApp', `Recordatorio ${S.retries} entregado.`);
+      log('wait', 'Esperando respuesta', S.retries < DIR.maxReintentos ? `Siguiente reintento a las ${hm(S.simMin + DIR.reintentoMin)}.` : `Si no responde a las ${hm(S.simMin + DIR.reintentoMin)}, se cierra como no contactado.`);
+      renderState();
+    } else {
+      const o = calc();
+      log('warn', 'Cliente no contactado', `Se agotaron los ${DIR.maxReintentos} reintentos. El pedido sugerido queda en borrador.`);
+      log('action', 'Asignar al operador en ruta', 'El cliente pasa a la lista del operador para la visita de mañana.', { request: 'POST /crm/gestiones', body: { cliente_id: c.id, resultado: 'no_contactado', reintentos: DIR.maxReintentos, asignado_a: 'operador_ruta', pedido_borrador: o.total } }, 'Registro');
+      log('end', 'Gestión cerrada sin contacto', 'Se suma al reporte diario como cliente no contactado.');
+      summary(`${c.nombre} no respondió al mensaje ni a los ${DIR.maxReintentos} recordatorios. ADA dejó el pedido sugerido (${money(o.total)}) en borrador y asignó al cliente al operador en ruta.`);
+      S.status = 'closed'; S.outcome = 'No contactado'; S.pending && (S.pending.estado = 'sin respuesta'); renderState();
+    }
+  });
+}
+
+/* ===== Conversación: IA con guion de respaldo ===== */
+function buildPrompt() {
+  const c = S.sc.cliente, o = calc();
+  const datos = {
+    fecha: 'martes 10 de noviembre de 2026', hora_simulada: now(), entrega: 'miércoles 11 de noviembre con la ruta',
+    cliente: { id: c.id, nombre: c.nombre, contacto: c.contacto, trato: c.trato, segmento: c.segmento, ruta: c.ruta, condiciones_pago: c.pago, ticket_promedio: c.ticket_prom, ya_compro_volt: c.compro_volt, productos_habituales: S.sc.habitual },
+    catalogo: Object.keys(CATALOG).map(s => ({ sku: s, nombre: CATALOG[s].nombre, unidad: CATALOG[s].unidad, precio_por_caja: CATALOG[s].precio, stock_cajas: stock(s) })),
+    promociones: Object.keys(PROMOS).map(id => ({ id, ...PROMOS[id], aplica_al_cliente: id === 'VOLT-LANZ' ? !c.compro_volt : true })),
+    directrices: { monto_minimo: DIR.minimo, descuento_adicional_max_pct: DIR.descMaxPct, descuento_solo_si_neto_mayor_o_igual_a: DIR.descUmbral, max_ofertas_por_conversacion: DIR.maxOfertas, prioridad_upsell: ['COMBO-BC', 'VOLT-LANZ', 'AGUA-6x5'] },
+    pedido_actual: { lineas: o.lines.map(l => ({ sku: l.sku, nombre: l.nombre, cajas: l.cant })), promociones_aplicadas: o.promos.map(p => p.nombre), neto_despues_de_promociones: o.neto, descuento_adicional_pct: o.pct, total: o.total },
+    productos_agotados: S.agotados,
+    ofertas_hechas: S.offers.map(x => ({ id: x.id, sku: x.sku, cantidad_total_sugerida: x.cant, estado: x.estado })),
+    oferta_pendiente: S.pending ? { id: S.pending.id, sku: S.pending.sku, cantidad_total_sugerida: S.pending.cant } : null,
+    oferta_sugerida: upsellDone() ? null : upsellCandidate(),
+    pedido_confirmado: S.folio,
+  };
+  const conv = S.transcript.map(m => `${m.who}: ${m.text}`).join('\n');
+  return `Eres ADA, el agente de IA de SimpliRoute que hace la toma de pedidos y venta proactiva para ${EMPRESA}, distribuidora de consumo masivo en Monterrey, México. Es una simulación de preventa con datos de ejemplo; compórtate exactamente como en producción.
+PROPÓSITO: contactar a la cartera según su calendario, tomar el pedido validando stock en línea, ofrecer upsell o promociones según stock, historial y directrices de marca, confirmar el pedido y dispararlo a distribución. Escalar al supervisor de ventas lo que no puedas resolver.
+REGLAS DE COMUNICACIÓN: español de México, trato de usted, llama al cliente "${c.trato}". Máximo 80 palabras. Amable y directo, sin emojis. Usa *negritas* estilo WhatsApp (un asterisco) para productos y promociones. Zona horaria America/Monterrey.
+REGLAS DE NEGOCIO (directrices, propuesta a confirmar):
+- Solo vendes productos del catálogo. No inventes productos, precios, promociones ni fechas de reabastecimiento.
+- Nunca vendas más cajas que el stock disponible. Si un producto no tiene stock, dilo y ofrece un sustituto de la misma marca si existe.
+- Monto mínimo de pedido: ${money(DIR.minimo)}.
+- Descuento adicional: máximo ${DIR.descMaxPct}% y solo si el neto después de promociones es mayor o igual a ${money(DIR.descUmbral)}.
+- No cambias condiciones de pago.
+- Máximo ${DIR.maxOfertas} ofertas (upsell o sustituto) por conversación. Si aún no ofreciste upsell y hay "oferta_sugerida", ofrécela una sola vez antes de confirmar.
+- No escribas importes del pedido ni totales: el sistema los calcula. Para mostrar el pedido escribe el marcador [[PEDIDO:actual]] en una línea propia; al confirmarlo usa [[PEDIDO:final]]. Sí puedes mencionar el precio por caja del catálogo.
+QUÉ HACER SEGÚN LO QUE ESCRIBA:
+1. Acepta el pedido sugerido sin cambios ("lo de siempre", "sí") y no has ofrecido upsell: intencion "confirma_habitual", acción ofrecer con el id de oferta_sugerida, estado abierta, y en la respuesta haz la oferta. Si ya ofreciste o no hay oferta_sugerida, confirma (regla 5).
+2. Cambia cantidades o agrega/quita productos: intencion "modifica", una acción "fijar" por producto con la cantidad TOTAL final en cajas (0 para quitar). Muestra [[PEDIDO:actual]] y pregunta si lo confirma, o haz la oferta_sugerida si corresponde.
+3. Acepta la oferta pendiente: intencion "acepta_oferta", acción fijar con sku y cantidad = oferta_pendiente.cantidad_total_sugerida (o la que diga el cliente).
+4. Rechaza la oferta: intencion "rechaza_oferta", acción rechazar_oferta, y pregunta si confirma.
+5. Confirma explícitamente ("confírmalo", "así está bien", "mándalo"): intencion "confirma_pedido", acción confirmar_pedido (si había oferta pendiente, antes rechazar_oferta), estado resuelta; incluye [[PEDIDO:final]] y menciona la entrega de mañana.
+6. Pregunta por promociones: intencion "consulta_promo"; describe solo las vigentes con stock que le aplican.
+7. Pregunta por un producto o precio: intencion "consulta_producto"; responde con precio por caja y disponibilidad. Si no está en el catálogo, dilo.
+8. Pide descuento: si el neto cumple la regla, acción aplicar_descuento con pct ${DIR.descMaxPct} (intencion "descuento") y muestra [[PEDIDO:actual]]; si no alcanza, explica el monto requerido; si pide más de ${DIR.descMaxPct}%: intencion "descuento_fuera_limite", acción escalar, estado escalada.
+9. Reclamo (producto dañado, faltante, cobro, entrega): intencion "reclamo", acción escalar, estado escalada. No prometas reposiciones ni notas de crédito: di que su supervisor de ventas lo revisa y que su pedido queda guardado.
+10. Pide crédito, plazo u otra condición de pago: intencion "condiciones_pago", acción escalar, estado escalada.
+11. Dice que el precio está caro o subió: intencion "cuestiona_precio", acción escalar, estado escalada.
+12. No quiere pedir esta semana: intencion "no_compra", acción registrar_no_compra con motivo, estado resuelta; despídete amable.
+13. Si pedido_confirmado no es null y pide cambios: intencion "cambio_post_confirmacion", acción escalar, estado escalada.
+14. Agradece: intencion "agradece", respuesta breve.
+15. Fuera de alcance: intencion "otro"; redirige a su pedido.
+DATOS (JSON): ${JSON.stringify(datos)}
+CONVERSACIÓN HASTA AHORA:
+${conv}
+Responde SOLO con un objeto JSON:
+{"intencion":"confirma_habitual|modifica|acepta_oferta|rechaza_oferta|confirma_pedido|consulta_promo|consulta_producto|descuento|descuento_fuera_limite|reclamo|condiciones_pago|cuestiona_precio|no_compra|cambio_post_confirmacion|agradece|otro","acciones":[{"tipo":"fijar|ofrecer|rechazar_oferta|aplicar_descuento|confirmar_pedido|registrar_no_compra|escalar","sku":"…","cantidad":0,"id":"…","pct":0,"motivo":"…"}],"respuesta":"…","estado":"abierta|resuelta|escalada","resumen_supervisor":"solo si escalas: 1 o 2 frases"}`;
+}
+
+const KW = [
+  ['REF-600', /(refresco|coca|cola|burbuja)/], ['AGU-1L', /(agua|manantial)/], ['PAP-45', /(papa|crujis|botana)/], ['GAL-CHO', /galleta/],
+  ['JUG-MAN', /mango/], ['JUG-NAR', /naranja/], ['ENE-473', /(volt|energetica|energizante)/], ['DET-1K', /(detergente|limpio)/],
+];
+const NUMW = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, doce: 12, quince: 15, veinte: 20 };
+function mentions(t) {
+  const out = [];
+  t.split(/,|;|\.|\by\b|\be\b|\btambien\b/).forEach(seg => {
+    for (const [sku, re] of KW) if (re.test(seg) && !out.some(o => o.sku === sku)) {
+      const m = seg.match(/(\d+)/) || seg.match(new RegExp('\\b(' + Object.keys(NUMW).join('|') + ')\\b'));
+      out.push({ sku, n: m ? (isNaN(+m[1]) ? NUMW[m[1]] : +m[1]) : null }); break;
+    }
+  });
+  return out;
+}
+function simCart(acciones) { const c = { ...S.cart }; (acciones || []).forEach(a => { if (a.tipo === 'fijar' && CATALOG[a.sku]) c[a.sku] = Math.max(0, Math.min(Math.round(+a.cantidad || 0), stock(a.sku))); }); return c; }
+function rules(text) {
+  const t = norm(text), c = S.sc.cliente, o0 = calc();
+  const R = (intencion, respuesta, acciones = [], estado = 'abierta', resumen = '') => ({ intencion, acciones, respuesta, estado, resumen_supervisor: resumen });
+  const ments = mentions(t);
+  if (/(danad|aplast|mal estado|falto|faltaron|incomplet|cobraron de mas|queja|reclamo|rotas?\b|vencid|caduc|golpead)/.test(t))
+    return R('reclamo', `Lamento mucho lo ocurrido, ${c.trato}. Ya le pasé el caso a su supervisor de ventas para que lo revise y le dé solución. Su pedido de mañana queda guardado mientras tanto.`, [{ tipo: 'escalar', motivo: 'Reclamo por producto dañado o faltante del pedido anterior' }], 'escalada', `Reporta un problema con el pedido del ${c.ultimo}: "${text}". Pide revisión antes de hacer el pedido de esta semana.`);
+  if (/(credito|a \d+ dias|plazo|pagar despues|pago despues|fiado|consignacion)/.test(t))
+    return R('condiciones_pago', `Las condiciones de pago no las puedo cambiar desde aquí, ${c.trato}. Ya le pasé su solicitud a su supervisor de ventas para que la revise y le confirme. Su pedido queda guardado mientras tanto.`, [{ tipo: 'escalar', motivo: 'Solicita cambio de condiciones de pago' }], 'escalada', `Pide cambiar condiciones de pago (actual: ${c.pago}). Mensaje: "${text}". Pedido en borrador por ${money(o0.total)}.`);
+  if (/(muy caro|esta caro|carisimo|subio|subieron|aumento|mas barato en)/.test(t))
+    return R('cuestiona_precio', `Entiendo su comentario, ${c.trato}. Los precios no los puedo modificar, pero ya le pasé su comentario a su supervisor de ventas para que lo revise con usted. Su pedido queda guardado mientras tanto.`, [{ tipo: 'escalar', motivo: 'Cuestiona el precio' }], 'escalada', `El cliente considera caro el precio: "${text}". Pedido en borrador por ${money(o0.total)}.`);
+  if (/(descuento|rebaja|precio especial|%|por ?ciento)/.test(t)) {
+    const m = t.match(/(\d+(?:[.,]\d+)?)\s*(%|por ?ciento)/) || t.match(/(\d+)/); const p = m ? parseFloat(m[1].replace(',', '.')) : null;
+    if (p && p > DIR.descMaxPct) return R('descuento_fuera_limite', `Entiendo, ${c.trato}. Un descuento del ${p}% está fuera de lo que yo puedo autorizar. Ya le pasé la solicitud a su supervisor de ventas para que la revise con usted. Su pedido queda guardado mientras tanto.`, [{ tipo: 'escalar', motivo: `Pide ${p}% de descuento` }], 'escalada', `Pide ${p}% de descuento sobre un pedido de ${money(o0.total)}. Límite del agente: ${DIR.descMaxPct}% con neto ≥ ${money(DIR.descUmbral)}.`);
+    if (S.pct > 0) return R('descuento', `Ya tiene aplicado el ${S.pct}% adicional, que es lo máximo que puedo darle. ¿Se lo confirmo así?`);
+    if (o0.neto >= DIR.descUmbral) return R('descuento', `Por el tamaño de su pedido le puedo aplicar un *${DIR.descMaxPct}% adicional*. Así queda:\n[[PEDIDO:actual]]\n¿Se lo confirmo?`, [{ tipo: 'aplicar_descuento', pct: DIR.descMaxPct }]);
+    return R('descuento', `El descuento adicional aplica en pedidos desde ${money(DIR.descUmbral)} después de promociones, y el suyo va en ${money(o0.neto)}. Lo que sí tiene son las promociones vigentes. ¿Le confirmo su pedido así?`);
+  }
+  if (S.folio) {
+    if (ments.length || /(agrega|quita|cambia|suma|mas cajas)/.test(t)) return R('cambio_post_confirmacion', `Su pedido *${S.folio}* ya salió a distribución, ${c.trato}, así que el cambio lo revisa su supervisor de ventas. Ya le pasé el detalle para que le confirme.`, [{ tipo: 'escalar', motivo: 'Cambio a pedido ya enviado' }], 'escalada', `Pide cambiar el pedido ${S.folio} ya enviado a distribución: "${text}".`);
+    if (/(gracias|muy amable)/.test(t)) return R('agradece', `Con gusto, ${c.trato}. Su pedido *${S.folio}* llega mañana miércoles con la ruta. Que tenga buen día.`, [], 'resuelta');
+    return R('otro', `Su pedido *${S.folio}* ya va en la ruta de mañana, ${c.trato}. Si necesita algo más, aquí estoy.`, [], 'resuelta');
+  }
+  if (!S.pending && /(no necesito|no quiero nada|esta semana no|no voy a pedir|tengo inventario|tengo mercancia|ahorita no|no ocupo)/.test(t))
+    return R('no_compra', `Entendido, ${c.trato}. Gracias por avisarme. La próxima semana le escribo de nuevo con su pedido sugerido. Que tenga buen día.`, [{ tipo: 'registrar_no_compra', motivo: /(inventario|mercancia)/.test(t) ? 'Tiene inventario suficiente' : 'No requiere pedido esta semana' }], 'resuelta');
+  if (/naranja/.test(t) && /(cuando|vuelve|regresa|llega)/.test(t) && stock('JUG-NAR') === 0)
+    return R('consulta_producto', `Todavía no tengo fecha confirmada de reabastecimiento del *Jugo naranja Citrus*, ${c.trato}. En cuanto haya stock se lo incluyo en su pedido sugerido. Mientras tanto, el de mango está al mismo precio.`);
+  if (/(tienen|tienes|hay|manejan|venden|cuanto (cuesta|sale|esta))/.test(t) && !/(agrega|ponme|suma)/.test(t)) {
+    if (!ments.length) { const w = (t.match(/(?:tienen|tienes|hay|manejan|venden)\s+([a-z]+)/) || [])[1]; return R('consulta_producto', `Por ahora no manejamos ${w ? '*' + w + '*' : 'ese producto'} en nuestro catálogo, ${c.trato}. Le puedo ayudar con refrescos, agua, botanas, galletas, jugos, bebidas energéticas y limpieza. ¿Le confirmo su pedido así?`); }
+    const p = CATALOG[ments[0].sku], s = stock(ments[0].sku);
+    return R('consulta_producto', s > 0 ? `Sí, tenemos *${p.nombre}* a ${money(p.precio)} la ${p.unidad}. Hay ${s} cajas disponibles. ¿Cuántas le agrego?` : `El *${p.nombre}* está agotado por ahora, ${c.trato}. ¿Le ayudo con otro producto?`);
+  }
+  const addV = /(agrega|suma|anade|incluye|\bmas\b|otra|tambien)/.test(t), remV = /(quita|sin |ya no|no quiero|elimina|saca)/.test(t);
+  if (S.pending) {
+    const p = S.pending;
+    const reject = /^(no|nel)\b|no,? gracias|asi nomas|sin (el|la|promo|combo)|por ahora no|ahorita no/.test(t);
+    const confirmish = /(confirm|asi esta bien|mandalo|asi dejalo)/.test(t);
+    if (reject) {
+      if (confirmish) return R('confirma_pedido', `Entendido, ${c.trato}. Su pedido quedó confirmado:\n[[PEDIDO:final]]\nLlega mañana miércoles con la ruta. Gracias por su compra.`, [{ tipo: 'rechazar_oferta', id: p.id }, { tipo: 'confirmar_pedido' }], 'resuelta');
+      return R('rechaza_oferta', `Entendido, sin problema. ¿Le confirmo su pedido así?\n[[PEDIDO:actual]]`, [{ tipo: 'rechazar_oferta', id: p.id }]);
+    }
+    const accept = /^(si|sip|sale|va|dale|orale|ok|okay|claro|perfecto|de acuerdo|me interesa|agregalo|agregamelo|ponlo|ponmelo|mandame)\b/.test(t) || (p.id === 'COMBO-BC' && /combo/.test(t)) || ments.some(m => m.sku === p.sku);
+    if (accept && !confirmish) {
+      const m = ments.find(x => x.sku === p.sku); const qty = m && m.n ? (addV ? (S.cart[p.sku] || 0) + m.n : m.n) : p.cant;
+      const acc = [{ tipo: 'fijar', sku: p.sku, cantidad: qty }];
+      const cart = simCart(acc); const nx = (S.offers.length < DIR.maxOfertas) ? upsellCandidate(cart) : null;
+      if (nx) acc.push({ tipo: 'ofrecer', id: nx.id });
+      return R('acepta_oferta', `Listo, le dejé ${qty} caja${qty > 1 ? 's' : ''} de *${CATALOG[p.sku].nombre}*.\n[[PEDIDO:actual]]\n${nx ? offerText(nx, cart) : '¿Se lo confirmo así?'}`, acc);
+    }
+  }
+  if (ments.length && (ments.some(m => m.n !== null) || remV)) {
+    const acc = []; const notes = [];
+    ments.forEach(m => {
+      const s = stock(m.sku); let q = remV && m.n === null ? 0 : addV ? (S.cart[m.sku] || 0) + (m.n || 1) : m.n;
+      if (s === 0 && q > 0) { notes.push(`El *${CATALOG[m.sku].nombre}* está agotado por ahora.`); return; }
+      if (q > s) { notes.push(`Del *${CATALOG[m.sku].nombre}* solo hay ${s} cajas; se las dejo en ${s}.`); q = s; }
+      acc.push({ tipo: 'fijar', sku: m.sku, cantidad: q });
+    });
+    const cart = simCart(acc); const nx = !upsellDone() ? upsellCandidate(cart) : null;
+    if (nx) acc.push({ tipo: 'ofrecer', id: nx.id });
+    return R('modifica', `${acc.length ? 'Listo, ajusté su pedido.' : ''} ${notes.join(' ')}`.trim() + `\n[[PEDIDO:actual]]\n${nx ? offerText(nx, cart) : '¿Se lo confirmo así?'}`, acc);
+  }
+  if (/(promo|oferta|que tienes|novedad|que hay de nuevo)/.test(t)) {
+    const list = Object.keys(PROMOS).filter(id => id !== 'VOLT-LANZ' || !c.compro_volt).map(id => `- *${PROMOS[id].nombre}*: ${PROMOS[id].condicion} (${PROMOS[id].vigencia}).`).join('\n');
+    const nx = S.offers.length < DIR.maxOfertas ? upsellCandidate() : null;
+    return R('consulta_promo', `Esta semana tenemos:\n${list}\n${nx ? offerText(nx) : '¿Le agrego alguna a su pedido?'}`, nx ? [{ tipo: 'ofrecer', id: nx.id }] : []);
+  }
+  if (/(confirm|asi esta bien|asi dejalo|asi dejelo|mandalo|mandamelo|listo|de acuerdo|lo mismo|como siempre|lo de siempre|perfecto|esta bien|^si\b|^sale|^va\b|^ok)/.test(t)) {
+    const nx = !upsellDone() ? upsellCandidate() : null;
+    if (nx) return R('confirma_habitual', `Perfecto, ${c.trato}. ${offerText(nx)} Si no, se lo confirmo tal cual.`, [{ tipo: 'ofrecer', id: nx.id }]);
+    const acc = S.pending ? [{ tipo: 'rechazar_oferta', id: S.pending.id }] : [];
+    acc.push({ tipo: 'confirmar_pedido' });
+    return R('confirma_pedido', `Perfecto, ${c.trato}. Su pedido quedó confirmado:\n[[PEDIDO:final]]\nLlega mañana miércoles con la ruta. Gracias por su compra.`, acc, 'resuelta');
+  }
+  if (/(gracias|muy amable)/.test(t)) return R('agradece', `Con gusto, ${c.trato}. ¿Le confirmo su pedido de mañana así como está?\n[[PEDIDO:actual]]`);
+  return R('otro', `Le ayudo con su pedido de mañana, ${c.trato}. ¿Se lo confirmo así o quiere cambiar algo?`);
+}
+const ORDER = { fijar: 0, rechazar_oferta: 1, ofrecer: 2, aplicar_descuento: 3, confirmar_pedido: 4, registrar_no_compra: 5, escalar: 6 };
+function normalize(r) {
+  r = { ...(r || {}) };
+  r.intencion = String(r.intencion || 'otro');
+  r.acciones = Array.isArray(r.acciones) ? r.acciones.filter(a => a && ORDER[a.tipo] !== undefined) : [];
+  r.estado = ['abierta', 'resuelta', 'escalada'].includes(r.estado) ? r.estado : 'abierta';
+  r.respuesta = String(r.respuesta || '').trim() || `¿Le confirmo su pedido de mañana así, ${S.sc.cliente.trato}?`;
+  // Regla dura: pedido ya enviado → cualquier cambio se escala
+  if (S.folio && r.acciones.some(a => ['fijar', 'aplicar_descuento', 'confirmar_pedido'].includes(a.tipo))) {
+    r.intencion = 'cambio_post_confirmacion'; r.acciones = [];
+    r.respuesta = `Su pedido *${S.folio}* ya salió a distribución, ${S.sc.cliente.trato}, así que el cambio lo revisa su supervisor de ventas. Ya le pasé el detalle para que le confirme.`;
+  }
+  // Ofertas: máximo por conversación y solo si existe con stock
+  let nOf = S.offers.length;
+  r.acciones = r.acciones.filter(a => { if (a.tipo !== 'ofrecer') return true; if (nOf >= DIR.maxOfertas || S.offers.some(o => o.id === a.id) || !offerFor(a.id, simCart(r.acciones))) return false; nOf++; return true; });
+  // Descuento: tope y umbral
+  const da = r.acciones.find(a => a.tipo === 'aplicar_descuento');
+  if (da && (+da.pct || 0) > DIR.descMaxPct) r.intencion = 'descuento_fuera_limite';
+  if (r.intencion === 'descuento_fuera_limite') r.acciones = r.acciones.filter(a => a.tipo !== 'aplicar_descuento');
+  else if (da) {
+    const neto = calc(simCart(r.acciones), 0).neto;
+    if (neto < DIR.descUmbral) { r.acciones = r.acciones.filter(a => a !== da); r._descNo = neto; r.respuesta = `El descuento adicional aplica en pedidos desde ${money(DIR.descUmbral)} después de promociones, y el suyo va en ${money(neto)}. ¿Le confirmo su pedido así o quiere completarlo?`; }
+  }
+  // Escalamiento obligatorio
+  if (ESC.includes(r.intencion) || r.acciones.some(a => a.tipo === 'escalar') || r.estado === 'escalada') {
+    const mot = (r.acciones.find(a => a.tipo === 'escalar') || {}).motivo || MOTIVO[r.intencion] || r.intencion;
+    r.estado = 'escalada'; r.acciones = [{ tipo: 'escalar', motivo: mot }];
+    r.respuesta = r.respuesta.replace(/\n?\[\[PEDIDO:\w+\]\]\n?/g, '\n').trim();
+  } else {
+    const conf = r.acciones.some(a => a.tipo === 'confirmar_pedido'), noc = r.acciones.some(a => a.tipo === 'registrar_no_compra');
+    if (conf || noc) r.estado = 'resuelta';
+    else if (S.status === 'resolved') r.estado = 'resuelta';
+    else if (r.estado === 'resuelta') r.estado = 'abierta';
+    if (conf && !r.respuesta.includes('[[PEDIDO:final]]')) r.respuesta = r.respuesta.replace(/\[\[PEDIDO:actual\]\]/g, '').trim() + '\n[[PEDIDO:final]]';
+    if (!conf) r.respuesta = r.respuesta.replace(/\[\[PEDIDO:final\]\]/g, '[[PEDIDO:actual]]');
+    if (!conf && r.acciones.some(a => a.tipo === 'fijar' || a.tipo === 'aplicar_descuento') && !r.respuesta.includes('[[PEDIDO:actual]]')) r.respuesta += '\n[[PEDIDO:actual]]';
+  }
+  r.acciones.sort((a, b) => ORDER[a.tipo] - ORDER[b.tipo]);
+  return r;
+}
+async function actionStep(a, res) {
+  const c = S.sc.cliente;
+  if (a.tipo === 'fijar') {
+    if (!CATALOG[a.sku]) { log('warn', 'Producto fuera de catálogo', `SKU "${a.sku}" no existe. No se agrega.`); return; }
+    const s = stock(a.sku); let q = Math.max(0, Math.round(+a.cantidad || 0)); const prev = S.cart[a.sku] || 0;
+    if (q > s) { log('warn', 'Stock insuficiente', `${CATALOG[a.sku].nombre}: pidió ${q}, hay ${s}. Se ajusta a ${s}.`); q = s; }
+    if (q === prev) return;
+    S.cart[a.sku] = q; if (!q) delete S.cart[a.sku];
+    let acc = '';
+    if (S.pending && S.pending.sku === a.sku && q > prev) { S.pending.estado = 'aceptada'; acc = ` Oferta aceptada: ${offerName(S.pending.id)}.`; S.pending = null; }
+    log('action', q > prev ? (prev ? 'Aumentar cantidad' : 'Agregar al pedido') : q === 0 ? 'Quitar del pedido' : 'Reducir cantidad', `${CATALOG[a.sku].nombre}: ${prev} → ${q} cajas. Stock validado (${s} disponibles).${acc}`, { sku: a.sku, cajas: q, stock_disponible: s, total_pedido: calc().total }, 'Acción');
+    renderState(); return;
+  }
+  if (a.tipo === 'ofrecer') {
+    const o = offerFor(a.id); if (!o) return;
+    if (S.pending) S.pending.estado = 'sin respuesta';
+    const rec = { ...o, estado: 'pendiente' }; S.offers.push(rec); S.pending = rec;
+    log('info', 'Ofrecer: ' + offerName(o.id), `${o.motivo} Sugerido: ${o.cant} cajas de ${CATALOG[o.sku].nombre}.`, { oferta: o.id, sku: o.sku, cantidad_total_sugerida: o.cant, stock: stock(o.sku), ofertas_en_conversacion: S.offers.length + ' de ' + DIR.maxOfertas }, 'Upsell');
+    renderState(); return;
+  }
+  if (a.tipo === 'rechazar_oferta') {
+    if (!S.pending) return; S.pending.estado = 'rechazada';
+    log('info', 'Oferta rechazada: ' + offerName(S.pending.id), 'Se registra para el análisis de aceptación de upsell.', null, 'Upsell'); S.pending = null; renderState(); return;
+  }
+  if (a.tipo === 'aplicar_descuento') {
+    S.pct = Math.min(DIR.descMaxPct, +a.pct || DIR.descMaxPct); const o = calc();
+    log('action', 'Aplicar descuento adicional', `${S.pct}% sobre el neto (${money(o.neto)} ≥ ${money(DIR.descUmbral)}). Dentro de las directrices.`, { pct: S.pct, neto: o.neto, descuento: o.descAdic, total: o.total }, 'Acción'); renderState(); return;
+  }
+  if (a.tipo === 'confirmar_pedido') {
+    const o = calc();
+    if (!o.lines.length || o.total < DIR.minimo) { log('warn', 'Pedido bajo el mínimo', `Total ${money(o.total)}; mínimo ${money(DIR.minimo)}. No se confirma.`); res._confirmFail = o; return; }
+    if (S.pending) { S.pending.estado = 'rechazada'; S.pending = null; }
+    const folio = 'PV-26-' + c.id.slice(3) + '7', visita = String(48210000 + (+c.id.slice(3)));
+    log('ok', 'Validar pedido', `Stock reservado, total sobre el mínimo, condiciones de pago del cliente (${c.pago.toLowerCase()}).`, { stock_ok: true, total: o.total, minimo: DIR.minimo, condiciones_pago: c.pago }, 'Validación');
+    await sleep(220);
+    log('action', 'Registrar pedido', `Pedido ${folio} registrado en el sistema de pedidos (integración por definir).`, { request: 'POST /erp/pedidos', body: { cliente_id: c.id, lineas: o.lines.map(l => ({ sku: l.sku, cajas: l.cant, precio: l.precio })), promociones: o.promos.map(p => p.id), descuento_adicional_pct: o.pct, total: o.total, condiciones_pago: c.pago, canal: 'ADA · WhatsApp' }, response: { pedido_id: folio, estado: 'confirmado' } }, 'Registro');
+    await sleep(220);
+    log('action', 'Disparar a distribución', `Visita creada en SimpliRoute para el ${ENTREGA} en ${c.ruta}.`, { request: 'POST https://api.simpliroute.com/v1/routes/visits/', body: { title: c.nombre, address: c.direccion, planned_date: '2026-11-11', load: o.cajas, reference: folio, contact_name: c.contacto, contact_phone: c.telefono, notes: 'Pedido tomado por ADA' }, response: { id: +visita, planned_date: '2026-11-11', reference: folio } }, 'Acción');
+    S.folio = folio; S.visita = visita; res._ok = true; renderState(); return;
+  }
+  if (a.tipo === 'registrar_no_compra') {
+    res._noCompra = a.motivo || 'Sin motivo';
+    log('action', 'Registrar no compra', `Motivo: ${res._noCompra}.`, { request: 'POST /crm/gestiones', body: { cliente_id: c.id, resultado: 'sin_pedido', motivo: res._noCompra, pedido_sugerido: S.baseTotal } }, 'Registro'); return;
+  }
+}
+async function askAI() {
+  if (!sample) throw { code: 'unavailable' };
+  const r = await sample.json(buildPrompt(), { modelTier: $('precise').checked ? 'default' : 'quick', cache: false });
+  if (!r || typeof r.respuesta !== 'string' || !r.respuesta.trim()) throw { code: 'invalid_json' };
+  return r;
+}
+function send(text) {
+  text = (text || '').trim(); if (!text || !canReply()) return; $('text').value = '';
+  run(async g => {
+    S.simMin += 1; push('principal', { dir: 'in', text, time: now() }); S.transcript.push({ who: 'Cliente', text });
+    log('in', 'Mensaje recibido', '“' + text + '”');
+    S.typing = 'principal'; renderChat();
+    let res, via, note = '';
+    try { res = await askAI(); via = 'IA ' + ($('precise').checked ? 'precisa' : 'rápida'); }
+    catch (e) {
+      const code = e && e.code;
+      if (['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(code)) { sample = null; setEngine('local'); }
+      if (code && code !== 'unavailable') note = ` La IA no respondió (${code}).`;
+      res = rules(text); via = 'guion local';
+    }
+    if (g !== S.gen) throw 'stale';
+    S.typing = null; res = normalize(res);
+    log('ai', 'Intención: ' + res.intencion, 'Motor: ' + via + '.' + note, { intencion: res.intencion, estado: res.estado, acciones: res.acciones });
+    for (const a of res.acciones) { await actionStep(a, res); await sleep(220); if (g !== S.gen) throw 'stale'; }
+    if (res._confirmFail) { const o = res._confirmFail; res.estado = 'abierta'; res.respuesta = o.lines.length ? `Su pedido va en ${money(o.total)} y el mínimo por pedido es de ${money(DIR.minimo)}, ${S.sc.cliente.trato}. ¿Quiere agregar algo para completarlo?\n[[PEDIDO:actual]]` : `Su pedido quedó sin productos, ${S.sc.cliente.trato}. ¿Qué le gustaría pedir para mañana?`; }
+    await say('principal', res.respuesta);
+    log('action', 'Responder por WhatsApp', 'Mensaje entregado.');
+    if (res.estado === 'escalada') return escalate(res, text);
+    const c = S.sc.cliente;
+    if (res._ok) {
+      const o = calc(), diff = r2(o.total - S.baseTotal), ac = S.offers.filter(x => x.estado === 'aceptada');
+      log('info', 'Registrar gestión', 'Se suma al reporte diario por email (hora y formato por definir).', { cliente_id: c.id, resultado: 'pedido', pedido_id: S.folio, total: o.total, total_sugerido: S.baseTotal, ofertas: S.offers.map(x => ({ id: x.id, estado: x.estado })), venta_adicional: diff > 0 ? diff : 0, escalado: false, canal: 'whatsapp' }, 'Registro');
+      log('end', 'Pedido tomado', 'Criterio RESUELTO: pedido confirmado por el cliente, registrado y disparado a distribución.');
+      summary(`${c.nombre} confirmó el pedido ${S.folio} por ${money(o.total)} (${o.cajas} cajas)${diff > 0 ? `, ${money(diff)} más que el sugerido` : ''}${ac.length ? ` con ${ac.map(x => offerName(x.id)).join(' y ')}` : ''}. ADA lo registró y creó la visita en SimpliRoute para el ${ENTREGA}.`);
+      S.status = 'resolved'; renderState(); return;
+    }
+    if (res._noCompra) {
+      log('info', 'Registrar gestión', 'Se suma al análisis de motivos de no compra del reporte diario.', { cliente_id: c.id, resultado: 'sin_pedido', motivo: res._noCompra, ofertas: S.offers.map(x => ({ id: x.id, estado: x.estado })) }, 'Registro');
+      log('end', 'Gestión cerrada sin pedido', 'Criterio RESUELTO: el cliente fue contactado y decidió no pedir esta semana.');
+      summary(`${c.nombre} no hará pedido esta semana (${res._noCompra.toLowerCase()}). ADA registró el motivo para el análisis y la reprogramó para la siguiente visita.`);
+      S.status = 'resolved'; renderState(); return;
+    }
+    S.status = res.estado === 'resuelta' ? 'resolved' : 'waiting'; renderState();
+    if (S.status === 'waiting') log('wait', 'Esperando respuesta', `Ventana abierta hasta las 19:00. Reintento a las ${hm(S.simMin + DIR.reintentoMin)} si no responde.`);
+  });
+}
+async function escalate(res, last) {
+  const g = S.gen, c = S.sc.cliente, o = calc();
+  const motivo = (res.acciones.find(a => a.tipo === 'escalar') || {}).motivo || MOTIVO[res.intencion] || res.intencion;
+  const tk = 'TK-' + c.id.slice(3) + '-' + pad(S.steps);
+  if (S.pending) S.pending.estado = 'sin respuesta', S.pending = null;
+  log('warn', 'Escalar al supervisor', `${MOTIVO[res.intencion] || 'Caso fuera de alcance'}: ${motivo}. El agente no puede resolverlo.`);
+  log('action', 'Crear ticket', 'Canal: ticket al supervisor de ventas (llamada si es urgente; por definir).', { request: 'POST /crm/tickets', body: { cliente_id: c.id, motivo: res.intencion, detalle: motivo, conversacion: S.transcript.slice(-6), pedido_borrador: { lineas: o.lines.map(l => ({ sku: l.sku, cajas: l.cant })), total: o.total } }, response: { ticket_id: tk, estado: 'abierto' } }, 'Acción');
+  await sleep(300); if (g !== S.gen) throw 'stale';
+  const resumen = (res.resumen_supervisor || '').trim() || `El cliente escribió: "${last}".`;
+  await say('escalamiento', `*Escalamiento · Toma de pedidos*\n*Cliente:* ${c.nombre} (${c.id})\n*Contacto:* ${c.contacto} · ${c.telefono}\n*Motivo:* ${MOTIVO[res.intencion] || motivo}\n*Último mensaje:* “${last}”\n*Resumen:* ${resumen}\n*Pedido en borrador:* ${money(o.total)} · ${o.cajas} cajas\n*Ticket:* ${tk}`);
+  sys('principal', 'ADA pasó la conversación al supervisor de ventas.');
+  log('end', 'Gestión escalada', `Ticket ${tk}. El pedido queda en borrador hasta que el supervisor resuelva.`);
+  summary(`${c.nombre}: ${(MOTIVO[res.intencion] || motivo).toLowerCase()}. ADA respondió al cliente, abrió el ticket ${tk} con el resumen y dejó el pedido (${money(o.total)}) en borrador para el supervisor.`);
+  S.status = 'escalated'; renderState();
+}
+function setEngine(st) { const el = $('engine'); el.textContent = st === 'ai' ? 'IA activa' : st === 'connecting' ? 'Conectando IA…' : 'Guion local'; el.classList.toggle('off', st !== 'ai'); }
+
+/* Arranque */
+SCENARIOS.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; $('preset').appendChild(o); });
+$('preset').addEventListener('change', reset);
+$('form').addEventListener('submit', e => { e.preventDefault(); if (!S.started) run(start); });
+$('reset').addEventListener('click', reset);
+$('composer').addEventListener('submit', e => { e.preventDefault(); send($('text').value); });
+reset(); setEngine('connecting');
+if (window.claude && typeof window.claude.use === 'function') window.claude.use('sample').then(s => { sample = s; setEngine(s ? 'ai' : 'local'); }).catch(() => setEngine('local'));
+else setEngine('local');
+})();
+</script>
+
+</body></html>

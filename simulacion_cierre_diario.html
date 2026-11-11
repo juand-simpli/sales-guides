@@ -1,0 +1,829 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Cierre Diario ADA</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: banda de marca arriba; abajo dos paneles: escenario + conductor + registro de ejecución (izquierda) y WhatsApp (derecha).
+   Tema claro único y de alto contraste. Mismo sistema visual que el simulador "Gestor de citas" (tokens SimpliRoute Apollo DS). */
+:root{
+  --ink:#0C0645; --brand:#4C3BEF; --brand-600:#2A16DA; --brand-soft:#F3F2FE; --brand-200:#D4D0FB;
+  --bg:#F4F4F7; --surface:#FFFFFF; --line:#DBDBE0; --line-soft:#E9E9EB;
+  --fg:#22242A; --muted:#55586C; --subtle:#73768C;
+  --ok:#00804A; --ok-soft:#E3FBEF; --warn:#7A5B00; --warn-soft:#FFF6D6; --err:#B3112A; --err-soft:#FDECEC;
+  --chat-bg:#ECEEF6; --bubble-out:#E6E3FF; --bubble-in:#FFFFFF;
+  --font:'Open Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'Roboto Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --r-sm:6px; --r-md:8px; --r-lg:12px;
+  --shadow:0 1px 3px rgba(34,36,42,.10),0 1px 2px rgba(34,36,42,.06);
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.5;display:flex;flex-direction:column;min-height:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+
+/* ---------- Banda de marca ---------- */
+.band{background:var(--ink);color:#fff}
+.band-in{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.band img.logo{height:24px;width:auto;display:block}
+.band .sep{width:1px;height:28px;background:rgba(255,255,255,.25)}
+.band h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.band .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#C9C4FF;font-weight:600}
+.band .titles{display:flex;flex-direction:column;min-width:0}
+.band .spacer{flex:1}
+.badge-sim{font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:4px 10px;color:#fff;white-space:nowrap}
+.badge-sim.clock{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums}
+
+/* ---------- Grid principal ---------- */
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:16px;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.col{min-height:0;min-width:0;display:flex;flex-direction:column;gap:16px}
+.col>*{flex:none}
+.col>.log-card,.col>.chat{flex:1 0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);min-width:0}
+.card-h{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line-soft)}
+.card-h h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+.card-h .hint{margin-left:auto;font-size:12px;color:var(--muted)}
+.caps{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+
+/* ---------- Escenario ---------- */
+details.api{overflow:hidden}
+details.api summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 16px}
+details.api summary::-webkit-details-marker{display:none}
+details.api summary h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+details.api summary .chev{margin-left:auto;transition:transform .18s;color:var(--muted)}
+details.api[open] summary .chev{transform:rotate(180deg)}
+details.api[open] summary{border-bottom:1px solid var(--line-soft)}
+.api-pill{font-family:var(--mono);font-size:11px;font-weight:500;background:var(--brand-soft);color:var(--brand-600);border-radius:var(--r-sm);padding:2px 6px;white-space:nowrap}
+.api-pill.off{background:var(--line-soft);color:var(--muted)}
+.form{padding:14px 16px 16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f.w2{grid-column:span 2}.f.w4{grid-column:1/-1}
+.f label{font-size:12px;font-weight:600;color:var(--muted)}
+.f select{width:100%;min-width:0;border:1px solid var(--line);border-radius:var(--r-md);padding:7px 9px;background:#fff;font-size:13.5px}
+.f select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(76,59,239,.18)}
+.f .desc{font-size:13px;color:var(--fg);padding:7px 0 0}
+.form-actions{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding-top:4px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:var(--r-md);padding:8px 14px;font-weight:600;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:var(--brand-soft)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:var(--brand-600)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--fg);cursor:pointer;margin-left:auto}
+.toggle input{accent-color:var(--brand);width:16px;height:16px}
+
+/* ---------- Conductor ---------- */
+.visit{padding:14px 16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px}
+.kv{min-width:0}
+.kv .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.kv .v{font-weight:600;color:var(--fg);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;border-radius:4px;transition:background-color .6s}
+.kv .v.flash{background:var(--brand-200)}
+.tags{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;min-height:24px}
+.tag{font-family:var(--mono);font-size:11.5px;border-radius:999px;padding:2px 9px;border:1px solid var(--line);background:#fff;color:var(--muted)}
+.tag.ok{background:var(--ok-soft);border-color:#9FDDBF;color:var(--ok)}
+.tag.warn{background:var(--warn-soft);border-color:#EED48A;color:var(--warn)}
+.tag.err{background:var(--err-soft);border-color:#F3B3BC;color:var(--err)}
+.tag.brand{background:var(--brand-soft);border-color:var(--brand-200);color:var(--brand-600)}
+.prio{display:inline-block;border-radius:var(--r-sm);padding:0 8px}
+.prio.p1{background:var(--brand);color:#fff}
+.prio.low{background:var(--err);color:#fff}
+.meter{grid-column:1/-1;position:relative;height:8px;border-radius:999px;background:var(--line-soft);margin:2px 0 14px}
+.meter .fill{position:absolute;inset:0 auto 0 0;border-radius:999px;background:var(--brand);transition:width .6s}
+.meter.low .fill{background:var(--err)}
+.meter .tick{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.meter .tick i{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* ---------- Registro ---------- */
+.log-card{min-height:320px;display:flex;flex-direction:column}
+.log{list-style:none;margin:0;padding:8px 16px 16px;overflow:auto;flex:1;min-height:0}
+.step{display:grid;grid-template-columns:46px 22px minmax(0,1fr);gap:0 10px;position:relative;padding-top:12px}
+.step .t{font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:1px;font-variant-numeric:tabular-nums}
+.step .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;background:var(--brand);position:relative;z-index:1}
+.step:not(:last-child) .rail{position:absolute;left:66px;top:34px;bottom:-12px;width:2px;background:var(--line-soft)}
+.step.ok .dot{background:var(--ok)}
+.step.warn .dot{background:var(--err)}
+.step.wait .dot{background:#C99400}
+.step.info .dot{background:#7F56D9}
+.step.end .dot{background:var(--ink)}
+.step .body{min-width:0;padding-bottom:2px}
+.step .row1{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.step .title{font-weight:700;color:var(--ink)}
+.chip{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-radius:4px;padding:1px 6px;background:var(--brand-soft);color:var(--brand-600)}
+.step.ok .chip{background:var(--ok-soft);color:var(--ok)}
+.step.warn .chip{background:var(--err-soft);color:var(--err)}
+.step.wait .chip{background:var(--warn-soft);color:var(--warn)}
+.step.info .chip{background:#F1EBFC;color:#5B34B5}
+.step.end .chip{background:var(--line-soft);color:var(--ink)}
+.step .d{color:var(--fg);font-size:13.5px;margin-top:1px;white-space:pre-line}
+.step pre{margin:8px 0 0;font-family:var(--mono);font-size:11.5px;line-height:1.5;background:#F7F7FB;border:1px solid var(--line-soft);border-radius:var(--r-md);padding:10px 12px;overflow:auto;max-height:240px;color:#2B2D5C}
+.step.live .dot{box-shadow:0 0 0 4px rgba(201,148,0,.25)}
+.empty{padding:20px 16px;color:var(--muted)}
+.empty ol{margin:8px 0 0;padding-left:20px}
+.empty li{margin:4px 0}
+.summary{margin:14px 0 0 56px;border:1px solid var(--brand-200);background:var(--brand-soft);border-radius:var(--r-md);padding:10px 12px;font-size:13.5px;color:var(--ink)}
+
+/* ---------- Chat ---------- */
+.chat{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
+.tabs{display:flex;gap:4px;padding:8px 8px 0;border-bottom:1px solid var(--line-soft);overflow-x:auto}
+.tab{border:0;background:transparent;padding:8px 12px 10px;font-weight:600;font-size:13px;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--brand)}
+.tab .n{min-width:18px;height:18px;border-radius:9px;background:var(--err);color:#fff;font-size:11px;display:inline-grid;place-items:center;padding:0 5px}
+.chat-h{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+.av{width:36px;height:36px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.chat-h .nm{font-weight:700;color:var(--ink);line-height:1.2}
+.chat-h .sub{font-size:12px;color:var(--muted)}
+.chat-h .wa{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--ok);background:var(--ok-soft);border-radius:999px;padding:3px 9px}
+.msgs{flex:1;min-height:220px;overflow:auto;background:var(--chat-bg);padding:14px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:84%;padding:8px 11px 6px;border-radius:12px;box-shadow:0 1px 1px rgba(34,36,42,.08);white-space:pre-wrap;overflow-wrap:anywhere;font-size:13.5px}
+.msg.out{align-self:flex-end;background:var(--bubble-out);border-bottom-right-radius:4px;color:var(--ink)}
+.msg.in{align-self:flex-start;background:var(--bubble-in);border-bottom-left-radius:4px}
+.msg strong{font-weight:700}
+.msg .meta{display:flex;align-items:center;gap:6px;justify-content:flex-end;font-size:11px;color:var(--muted);margin-top:3px}
+.msg.out .from{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--brand-600);margin-bottom:2px}
+.ada{width:20px;height:20px;flex:none;display:block;object-fit:contain}
+.sys{align-self:center;font-size:12px;color:var(--muted);background:rgba(255,255,255,.7);border-radius:999px;padding:3px 10px;text-align:center}
+.typing{align-self:flex-end;display:flex;align-items:center;gap:8px;background:var(--bubble-out);border-radius:12px;padding:7px 11px;font-size:12px;color:var(--brand-600);font-weight:600}
+.typing .ada{width:30px;height:30px}
+.dots{display:inline-flex;gap:3px}
+.dots i{width:5px;height:5px;border-radius:50%;background:var(--brand);opacity:.35;animation:b 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,100%{opacity:.25}50%{opacity:1}}
+.vid{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--brand-200);border-radius:var(--r-md);padding:8px 10px;margin:6px 0 2px;white-space:normal}
+.vid .play{width:30px;height:30px;border-radius:50%;background:var(--brand);display:grid;place-items:center;flex:none}
+.vid .play::after{content:"";border-left:9px solid #fff;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px}
+.vid b{display:block;font-size:13px;color:var(--ink)}
+.vid small{display:block;font-size:11.5px;color:var(--muted);line-height:1.35}
+.vpend{display:inline-block;font-family:var(--mono);font-size:11.5px;border-radius:999px;padding:1px 8px;background:var(--warn-soft);color:var(--warn);border:1px solid #EED48A}
+.msg,.step,.typing{animation:pop .22s var(--ease,cubic-bezier(.2,0,0,1))}
+@keyframes pop{from{transform:translateY(4px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.msg,.step,.typing{animation:none}.dots i{animation:none;opacity:.7}.kv .v,.meter .fill{transition:none}}
+.qr{display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px 0;background:#fff}
+.qr button{border:1px solid var(--brand);color:var(--brand-600);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer}
+.qr button:hover{background:var(--brand-soft)}
+.qr button.ghost{border-color:var(--line);color:var(--muted)}
+.qr button:disabled{opacity:.5;cursor:not-allowed}
+.composer{display:flex;gap:8px;padding:10px 12px 12px;background:#fff;align-items:center;flex-wrap:wrap}
+.composer .as{flex-basis:100%;font-size:12px;color:var(--muted)}
+.composer .as b{color:var(--ink)}
+.composer input{flex:1;min-width:0;border:1px solid var(--line);border-radius:999px;padding:9px 14px}
+.composer input:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(76,59,239,.18)}
+.composer input:disabled{background:var(--bg)}
+.send{width:40px;height:40px;border-radius:50%;border:0;background:var(--brand);color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}
+.send:disabled{opacity:.45;cursor:not-allowed}
+footer{font-size:12px;color:var(--muted);padding-block:0 14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* ---------- Responsive ---------- */
+@media (min-width:1001px){
+  body{height:100%}
+  main{overflow:hidden}
+  .col{overflow:auto}
+  .col.right{overflow:hidden}
+  .chat{height:100%}
+  .col>.log-card{flex:1 1 0;min-height:240px}
+}
+@media (max-width:1000px){
+  html,body{height:auto}
+  main{flex:none;grid-template-columns:minmax(0,1fr)}
+  .col>.log-card,.col>.chat{flex:none}
+  .log{max-height:none}
+  .msgs{max-height:60vh}
+}
+@media (max-width:560px){
+  .form,.visit{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .f.w2{grid-column:1/-1}
+  .band .sep{display:none}
+  .toggle{margin-left:0}
+}
+</style>
+
+<header class="band">
+  <div class="band-in">
+    <img class="logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKgAAAAgCAYAAACGqDMBAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAACvVJREFUeAHtW4t108oWPSMpb8G6iT8VYCrAVICo4JkKCBUkqQBSQXIriKmAUAGmAkwFhArs2H4L1o2l8/YeSY4ky5Kc2Hwu3mtNYkmj0WjmzPnsMzJSAzrS1syTrjHyUkNtHTScF0X1JtdB3zhOE/Uu9/fNW9lhh21jeh28mU7CEYrGZbSq7mwSfknq8ff1dXAsO+ywDcxG2k0LXLrMJnqWr0/tWVw3/PJtpB3ZYYc7wBSdnEHzqTFn5Tdqf7/hvuJva9qNeVlWfx6Yp+22GcoOO6wBL3+CJh3C+brqRhXTSX7D73wkqqsrG+P/aOG0frMTHhsXfRMZ/Go+8WSih47IEzXSxdh14de309enU/Xp80sYihs4pw/b5kr+QGQEFIPWw9RWCuc6UGjaxoHzUTYECt7/9qSD9dDisefJ1cOHy5OHoO5C1PQQ1PHwcDrSrwdtM5BfBDbgVPWlYF3TJZqrfojWvJHART2Rx/IHYiGgdlBEL2TDMMbpywZAjYJ/r2ec1PD2/PzGBmdXEN1BRtOorX8LT57h70B+A9y4YExSx5DTzrdv+uj7d7ne25MzKFWf5+FmcZGyjHFwZVSHapy3Bwc/byFSycEyNPcbm7FYTvJj7gl9zpZsGNAUHbknrGaHRlkSuhicQLgch4FrhTBBxqUwKlfymyAIsgsJmpRW4it+tmARDiGIY4xrH4N7jvLG/kedUI3PcZpO9N1opBufy5o4g9U8lA3BalCrnZTmfcNQGd7cyL3M+xqafZxetQjKXrmuvIaW6cDUX+43fx9eFv76eDLSF8bVIxyOg9CcZio45hJa8rTo3uk1XDSjbzzXHr6Q3xyJid+o30momn4QygkHO3+NQhe44euEBSgDNPt/RTOafeDtmcNYowg0RddzUCeHdmTqK9v/VdFom0v8u5Q1cdA0p6D3fPzs0S1IxulHAkrhSjYEL3bI/fRJmhTjmD6jSxyur1nVvGk0oxVuhdHTd1bInMg3mofU1qYF4SoU4DRgmruZOAImLT3oMTuwxBBYXygluNDk9lmp6JmBVtdq2Ajw48yQpvOvG3mPIOulffdoDCTx8fIRdfIcBDxdLMpWqj3eMyy6pw4s1+xECxP9HEJj/l37ZgPhxpzCVfBxtGQ5LEOg6DMZhPjdV2X/UPcIdcerfEry5QolMp/L21gpUDl1cV9G6dHFKmojji2O7FwYuC658fLgkPsZhxwNwaQ8bTcjwcEEnGHQa2WEcO/YMeY4MaeRprTRaMdWCLO+iRcJQf2Bj16UC6bSbcCAP9HU8x48gK/GiYC7YAVel0jgFicVffVnLoRVc/64XSimy4ga7/U8GUA85wjP8e3vfEge3zN3tQeBO14ncEAc2DPhQtgHssY44R2uzYproBHhr+oRyA2MhV3YYwoHOt+bXofHXmhepBcTrmHurUYs7HvIgE7hUnhW+dj7GBPk55qLP98G+XM84GUkN3rJBR6SeXH1EFnIk2bTPXfQyYx5pObMabUiYRhY5zx5ibkdvAEE+3kyCdQsmJhPtrMrYDTsSgWwyjPaEQ748XQafprN8GLbCwRWtsv3wXuty3a0SLeB6vLlBwCL5pH9H0rGOpHjxsWjyP0yj8G9Pue+ikbTeRwGegIh7d7h3ZZAYWOb6XLQMC9yfTm3yR1rbZ023T32hcqRsQsU3Rm1swMp6WRaz5l7R8PMdUzQpX2xA7MQXPpLPJeQ8RwIaJN3UsEKhIKoswI0HZqPwKmZQu3PXB3NJsHFPVKpNOs+CzRdf+mammNes5OXhb8iSh7DP+6w2Dbz/XZ1475+HhwLaLRDPvuf4Fa52DFCAobn4X69yrtWzbZ7Hisdn4tftoi4L0dctAfNbLBn3YTQ2PGGdn7piC5pOJ+TTt8gziplUp5BYE7KHm5NSI1MFGFq0FocSGpmXUETkV7Cqv9itcOawGIbc6GxNBqGAVVm0jB4f/OanTwx+YClU9Qe/WMW3me1QbZNn4GLbBhokzxph/6idanQN2igN2khtMGmULvdWr485pElHGu4OZqo8DmRawdZcgqZCCZUMK9XGFFyqstCwkm3vOOyoA3aVc6+Y55JfdQy0XwmzYSCOqL6L6yEvhZtYlkLJpOOzfYt52rAf25KBSggec0c3kilW1MJ+HzpDTnzG/3CgvPnSj8Q2nvJ39WI3L8J5LOU9JfBIH7ev4/l8NnPBw9uF1e+GAalmANvnVbr0QdctSrbAFyJPv71SS2B4zwyOUKY/imunVYxA3cBNPhXI+uDA50eDnU2kAzhInWyGt0S+AYTikVcyBgYBoEL1mN1f9UMMY7bFlBaz45dVBXwqEoz1EgJ0htESmqtMwF3EqR4kF9RGD0EYpLSdv+Jsknv5V8M0DHD/YOseUQA9hE+7geaeIzL07suUt1CNnEF6P/3qip55J7WUHh+2UUbOOhaq28o9wBNP9iCfpoG24iG2iDyPK5uKeVKv+16FJw4rjnbc23i5STXjyv2o5K8jzRtVrh1w2Matd+Cz/u5aiE5oBwGUrthc1x22fpcqrW5PmjkSgGl0K+K1EkzIcrLrMI8tbIW9B73FiDqc5YV4aSsrns/RMGcDCwVl6O0EroOz++V9jdicRbzYt26NfdTYF7LBTrui1fD13VMUNMcgq9iVMufs8n8kFQESjeJHpMBDkLneGUgk4NbY3cRfM3eIlKf6gc882JRcC7Ps/5TEgRUwcj9BJR+le0jgjWWPA9MWiXRGPnNKzTN+ezLXcA9CMKEBPjMNBVGus6eV+unFwrQ3AkPo/dIBXbGKrBWXQ43jlNK68ZsQS3azZnH2YTSWpFwWp+HwqniXJCHRPmURI8cYAopJ2CObEQNUzb+q2EqF0cmkcBMD4KBpEjeX1JLrVzJzwT7CA2mkdvRuj0t4zStokE2qxJnXyp9sirY9zeG0XwHTMNR6vwYfO6pPe9Ec5W+LybxX6v9UiK16SYRbAh8nJbMwI2TAgskAp2j/dL3xn2hC+KDhXiX74vdbB5zsU5ELZhzWYW0cDLvCuEsrMaozIm2eXGQyF1KieBjIC6lBjRKxZUuIHsd7kee9P1VwP4hQ9dLLx67eVpznKTZjIvBnU5WQeS0pXUB+MwoY2Qtki38EDKiFAdYRBnflX0GvXdiF5BGdeH3f2EhxRWC8krXp3a0z0Z79mNLtM+6vJfsS7ovpA2ZZrV9SbXLBAwVIPtumRP+QDTMkJ8vY9OY3Kn+/Tv6F9MSVjihJaUiykt/q0SzoI5emIhb8zMvEpjH62g7vCijc9+kMluhOJzQYQA3Je9sW5Pk3e4P5cCxTs6MjtObMCYj7RlPniTH6S1tGKOOm9pvimd+ZP85AZnsm7HZsUU/VZ3hPLQbKQqFj+1yNxY3r4CUHibai26TxGOdbLSw8wStiNTy53i300okmzjMXN7v56il+F1I01FgxpbJMXKZzg6u6qcxt+npZPz39mSQDrxs+xgDxw2fJfXK2odQot1bf9TuB8nPKSduch0W8lJUwblPj8tLQVaHnebGk+j69lN+PwqxBlq8u+ywPYxWRJJczbWFMy5pdZ4GhPTemxF+JewEdLtw0gclJnfdyHi8KmMR57x32KEWnJr1nsgaUNksn7jDn4vK9PJi07GsR9YiCGpvIye+w5+FUg06uqNwEnG6bYcd7oVSAaVPehOY5wWbeUtB3o+frv/ET193+Jeg9g4yCpvLj8jABRp+IAatyu1dvKbR9y1X3GUDzmtQxEvusMNd8H+/6FLXoUKDxAAAAABJRU5ErkJggg==" alt="SimpliRoute">
+    <span class="sep" aria-hidden="true"></span>
+    <div class="titles">
+      <span class="eyebrow">ADA · Seguridad de flota · Dash cams</span>
+      <h1>Cierre diario por WhatsApp</h1>
+    </div>
+    <span class="spacer"></span>
+    <span class="badge-sim clock" id="clock" title="Hora simulada, America/Mexico_City">19:00 CDMX</span>
+    <span class="badge-sim">Simulación con datos de ejemplo</span>
+  </div>
+</header>
+
+<main>
+  <div class="col left">
+    <details class="card api" id="scnBox" open>
+      <summary>
+        <span class="api-pill">Timer 19:00 CDMX</span>
+        <h2>Escenario del cierre</h2>
+        <span class="api-pill off" id="engine">Conectando IA…</span>
+        <svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      </summary>
+      <form class="form" id="form" autocomplete="off">
+        <div class="f w2"><label for="preset">Ejemplo rápido</label><select id="preset"></select></div>
+        <div class="f w2"><label>Qué muestra</label><div class="desc" id="presetDesc"></div></div>
+        <div class="form-actions">
+          <button class="btn primary" type="submit" id="go"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11L12 7z" fill="currentColor"/></svg> Ejecutar cierre de las 19:00</button>
+          <button class="btn" type="button" id="reset">Reiniciar</button>
+          <button class="btn" type="button" id="advance" title="Avanza el reloj simulado; sirve para ver el reintento de un video que todavía se procesa">+30 min</button>
+          <label class="toggle" title="Razona más; tarda entre 10 y 40 segundos por respuesta"><input type="checkbox" id="precise"> IA precisa</label>
+        </div>
+      </form>
+    </details>
+
+    <section class="card" aria-label="Conductor">
+      <div class="card-h"><h2>Conductor</h2><span class="hint" id="drvHint">Score semanal</span></div>
+      <div class="visit" id="driver"></div>
+    </section>
+
+    <section class="card log-card" aria-label="Registro de ejecución">
+      <div class="card-h"><h2>Registro de ejecución</h2><span class="hint" id="logHint">0 pasos</span></div>
+      <ol class="log" id="log"></ol>
+    </section>
+  </div>
+
+  <div class="col right">
+    <section class="card chat" aria-label="Conversaciones de WhatsApp">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="chat-h" id="chatHead"></div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="qr" id="qr" hidden></div>
+      <form class="composer" id="composer" autocomplete="off">
+        <span class="as" id="asWho">Esta conversación no espera respuesta ahora.</span>
+        <input id="text" placeholder="Escribe como el conductor…" aria-label="Mensaje" disabled>
+        <button class="send" id="sendBtn" type="submit" aria-label="Enviar" disabled><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 9l14-7-5 15-2.5-6z" fill="currentColor"/></svg></button>
+      </form>
+    </section>
+  </div>
+</main>
+<footer>Mockup del Flujo 2 (cierre diario por WhatsApp) de seguridad de conducción: el disparador es un timer diario a las 19:00 CDMX sobre las alertas de las dash cams Samsara. Conductores, teléfonos, eventos y videos son datos de ejemplo.</footer>
+
+<script>
+(function(){
+// Ícono oficial de ADA
+const ADA = `<img class="ada" alt="" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2aWV3Qm94PSIwIDAgMTA4MCAxMDgwIj4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmNscy0xIHsKICAgICAgICBmaWxsOiB1cmwoI1/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfNzcpOwogICAgICB9CgogICAgICAuY2xzLTEsIC5jbHMtMiwgLmNscy0zLCAuY2xzLTQsIC5jbHMtNSwgLmNscy02LCAuY2xzLTcsIC5jbHMtOCwgLmNscy05LCAuY2xzLTEwLCAuY2xzLTExLCAuY2xzLTEyLCAuY2xzLTEzLCAuY2xzLTE0LCAuY2xzLTE1LCAuY2xzLTE2LCAuY2xzLTE3LCAuY2xzLTE4LCAuY2xzLTE5IHsKICAgICAgICBzdHJva2Utd2lkdGg6IDBweDsKICAgICAgfQoKICAgICAgLmNscy0xLCAuY2xzLTIsIC5jbHMtNCwgLmNscy02LCAuY2xzLTcsIC5jbHMtOCwgLmNscy05LCAuY2xzLTIwLCAuY2xzLTExLCAuY2xzLTEzLCAuY2xzLTE0LCAuY2xzLTIxLCAuY2xzLTIyLCAuY2xzLTE1LCAuY2xzLTE3LCAuY2xzLTE4LCAuY2xzLTE5IHsKICAgICAgICBmaWxsLXJ1bGU6IGV2ZW5vZGQ7CiAgICAgIH0KCiAgICAgIC5jbHMtMSwgLmNscy0yLCAuY2xzLTUsIC5jbHMtOSwgLmNscy0xMiwgLmNscy0xNSB7CiAgICAgICAgbWl4LWJsZW5kLW1vZGU6IHNjcmVlbjsKICAgICAgfQoKICAgICAgLmNscy0yIHsKICAgICAgICBmaWxsOiB1cmwoI1/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfMTY0KTsKICAgICAgfQoKICAgICAgLmNscy0zLCAuY2xzLTEwIHsKICAgICAgICBjbGlwLXJ1bGU6IGV2ZW5vZGQ7CiAgICAgIH0KCiAgICAgIC5jbHMtMywgLmNscy0xMywgLmNscy0yMSwgLmNscy0xNiB7CiAgICAgICAgZmlsbDogIzRjM2JlZjsKICAgICAgfQoKICAgICAgLmNscy00IHsKICAgICAgICBmaWxsOiB1cmwoI1/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfODMpOwogICAgICB9CgogICAgICAuY2xzLTQsIC5jbHMtNiwgLmNscy04LCAuY2xzLTE3LCAuY2xzLTE4LCAuY2xzLTE5IHsKICAgICAgICBtaXgtYmxlbmQtbW9kZTogbXVsdGlwbHk7CiAgICAgIH0KCiAgICAgIC5jbHMtNCwgLmNscy04LCAuY2xzLTE1LCAuY2xzLTE4LCAuY2xzLTE5IHsKICAgICAgICBvcGFjaXR5OiAuNTsKICAgICAgfQoKICAgICAgLmNscy0yMyB7CiAgICAgICAgY2xpcC1wYXRoOiB1cmwoI2NsaXBwYXRoKTsKICAgICAgfQoKICAgICAgLmNscy01IHsKICAgICAgICBmaWxsOiB1cmwoI1/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfODEpOwogICAgICB9CgogICAgICAuY2xzLTYgewogICAgICAgIGZpbGw6IHVybCgjX8OCw4Ffw49fw4zDjF/DiF/Di8OCw4zDml84OS0yKTsKICAgICAgfQoKICAgICAgLmNscy02LCAuY2xzLTE3IHsKICAgICAgICBvcGFjaXR5OiAuODsKICAgICAgfQoKICAgICAgLmNscy03IHsKICAgICAgICBmaWxsOiB1cmwoI1/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfMTYyKTsKICAgICAgfQoKICAgICAgLmNscy04IHsKICAgICAgICBmaWxsOiB1cmwoI1/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfMyk7CiAgICAgIH0KCiAgICAgIC5jbHMtOSB7CiAgICAgICAgZmlsbDogdXJsKCNfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzc3LTIpOwogICAgICB9CgogICAgICAuY2xzLTI0IHsKICAgICAgICBjbGlwLXBhdGg6IHVybCgjY2xpcHBhdGgtMSk7CiAgICAgIH0KCiAgICAgIC5jbHMtMjAgewogICAgICAgIGZpbGw6IHVybCgjRGVncmFkYWRvX3Npbl9ub21icmVfMTEpOwogICAgICB9CgogICAgICAuY2xzLTEwIHsKICAgICAgICBmaWxsOiBub25lOwogICAgICB9CgogICAgICAuY2xzLTExIHsKICAgICAgICBmaWxsOiB1cmwoI1/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfMTQpOwogICAgICB9CgogICAgICAuY2xzLTEyIHsKICAgICAgICBmaWxsOiB1cmwoI1/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfODEtMik7CiAgICAgIH0KCiAgICAgIC5jbHMtMTQgewogICAgICAgIGZpbGw6ICNmZmY7CiAgICAgIH0KCiAgICAgIC5jbHMtMjIgewogICAgICAgIGZpbGw6ICNkNGU2ZmM7CiAgICAgIH0KCiAgICAgIC5jbHMtMjUgewogICAgICAgIGlzb2xhdGlvbjogaXNvbGF0ZTsKICAgICAgfQoKICAgICAgLmNscy0xNSB7CiAgICAgICAgZmlsbDogdXJsKCNfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzczKTsKICAgICAgfQoKICAgICAgLmNscy0xNyB7CiAgICAgICAgZmlsbDogdXJsKCNfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzg5KTsKICAgICAgfQoKICAgICAgLmNscy0xOCB7CiAgICAgICAgZmlsbDogdXJsKCNfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzgzLTMpOwogICAgICB9CgogICAgICAuY2xzLTE5IHsKICAgICAgICBmaWxsOiB1cmwoI1/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfODMtMik7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9Il/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfMTQiIGRhdGEtbmFtZT0iwqHDgsOBy5rDj8uHw4zDjMuaw4gg4oCe76O/4oCh4oCww4vDgsOMw5ogMTQiIHgxPSIxMDIuNjgiIHkxPSIxMDQ1LjU0IiB4Mj0iMTkuNDgiIHkyPSIyOTYuMTIiIGdyYWRpZW50VHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjk0Ljk3IC05Mi45OSkgcm90YXRlKC0xNi4yOSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIuMDIiIHN0b3AtY29sb3I9IiNiNGI4ZmYiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZGNmZGZmIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzgzIiBkYXRhLW5hbWU9IsKhw4LDgcuaw4/Lh8OMw4zLmsOIIOKAnu+jv+KAoeKAsMOLw4LDjMOaIDgzIiB4MT0iNjAuODMiIHkxPSI1NjAuMTgiIHgyPSI2MC44MyIgeTI9IjQwMi4zOSIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgyOTQuOTcgLTkyLjk5KSByb3RhdGUoLTE2LjI5KSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM4MTg5OWEiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNTQwMDY4Ii8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzE2MiIgZGF0YS1uYW1lPSLCocOCw4HLmsOPy4fDjMOMy5rDiCDigJ7vo7/igKHigLDDi8OCw4zDmiAxNjIiIGN4PSItNTIuMjgiIGN5PSI1NjcuODMiIGZ4PSItNTIuMjgiIGZ5PSI1NjcuODMiIHI9IjQyNi42MSIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgyOTQuOTcgLTkyLjk5KSByb3RhdGUoLTE2LjI5KSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMyNTUzY2QiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIuOTgiIHN0b3AtY29sb3I9IiMwMDMwYzMiLz4KICAgIDwvcmFkaWFsR3JhZGllbnQ+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9Il/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfODEiIGRhdGEtbmFtZT0iwqHDgsOBy5rDj8uHw4zDjMuaw4gg4oCe76O/4oCh4oCww4vDgsOMw5ogODEiIGN4PSI5NS44MyIgY3k9IjQ0MzAuNDYiIGZ4PSI5NS44MyIgZnk9IjQ0MzAuNDYiIHI9IjE4Ni44MSIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgyOTEuOTcgLTEyMzYuMDIpIHNjYWxlKDEuMDMgLjQzKSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9Ii4wMiIgc3RvcC1jb2xvcj0iI2YyM2QwMCIvPgogICAgICA8c3RvcCBvZmZzZXQ9Ii4xNyIgc3RvcC1jb2xvcj0iI2JmMzAwMCIvPgogICAgICA8c3RvcCBvZmZzZXQ9Ii40IiBzdG9wLWNvbG9yPSIjN2MxZjAwIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iLjYiIHN0b3AtY29sb3I9IiM0NjExMDAiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIuNzciIHN0b3AtY29sb3I9IiMyMDA4MDAiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIuOTEiIHN0b3AtY29sb3I9IiMwODAyMDAiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMDAwIi8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzc3IiBkYXRhLW5hbWU9IsKhw4LDgcuaw4/Lh8OMw4zLmsOIIOKAnu+jv+KAoeKAsMOLw4LDjMOaIDc3IiBjeD0iODkuMTYiIGN5PSI0NDMwLjQ2IiBmeD0iODkuMTYiIGZ5PSI0NDMwLjQ2IiByPSIxNDkuOTEiIGdyYWRpZW50VHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTEwOS41IC0xMTcxLjY2KSByb3RhdGUoLTEyLjI5KSBzY2FsZSgxLjAzIC40MykiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIuMDIiIHN0b3AtY29sb3I9IiNmMjAwMDAiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIuMTciIHN0b3AtY29sb3I9IiNiZjAwMDAiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIuNCIgc3RvcC1jb2xvcj0iIzdjMDAwMCIvPgogICAgICA8c3RvcCBvZmZzZXQ9Ii42IiBzdG9wLWNvbG9yPSIjNDYwMDAwIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iLjc3IiBzdG9wLWNvbG9yPSIjMjAwMDAwIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iLjkxIiBzdG9wLWNvbG9yPSIjMDgwMDAwIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzAwMCIvPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICAgIDxjbGlwUGF0aCBpZD0iY2xpcHBhdGgiPgogICAgICA8cGF0aCBjbGFzcz0iY2xzLTMiIGQ9Im0yMzkuODIsMjc2LjY2bC01Ni42NCw2NS42OWMtNS4wMSwxMC43OC05LjM1LDIzLjgxLTEzLjE5LDM3Ljg1bC0uMDQuMjJjLTIwLjgxLDc2LjMtMjYuNTMsMTg3LjU4LTI2LjUzLDE4Ny41OC00OC4zLTExNy44NS02NS45Ni0yMTUuNjMtNjYuOC0yODcuNzIsMCwwLS4wNS0uNTItLjA0LTEuNTgsMC0uOTcsMC0yLjQ0LjAyLTQuMjMsMC03LjUyLjE3LTE0LjguNTYtMjEuNjguMS0yLjU3LjIzLTUuMzYuNDctOC4xOSw0LjUxLTYxLjc5LDIyLjkyLTk4LjA5LDQyLjE0LTEwMy43MWwuMS0uMDNjMjEuNDMtNi4wNSw2MC43Niw0NC44NCw4OC41OCw4Ni4wNy4xNS4xNy4xOC4yNi4xOC4yNiwxOC4xLDI2LjgsMzEuMTgsNDkuNDYsMzEuMTgsNDkuNDZaIi8+CiAgICA8L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJjbGlwcGF0aC0xIj4KICAgICAgPHBhdGggY2xhc3M9ImNscy0xMCIgZD0ibTk2NS4yMywyNDMuMDhjLjA5LDIuODMuMTIsNC40MS4xMiw0LjQxLDMuNzIsNzEuNDYtNi43MiwxNjguMDMtNDguMDcsMjg1LjcsMCwwLTEyLjI1LTExOC40My0zOC43NC0xOTMuNTEtMy44Ni0xMS4wNS04LjA5LTIxLjE1LTEyLjYyLTI5Ljc4bC01NS40OC03MC42NHM3LjYtMTMuODcsMTkuMDItMzIuNzdjMCwwLC4yMS0uMzguNjItMS4xMywyNC4zOC00MC4xNyw2NS4xOS0xMDEuNjYsODUuOTctMTAwLjUyLjk2LjA0LDEuOTguMjcsMi44MS41NiwxNi43OCw2LjMyLDQxLjIyLDU0LjQ3LDQ2LjM3LDEzNy42OVoiLz4KICAgIDwvY2xpcFBhdGg+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9Il/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfODEtMiIgZGF0YS1uYW1lPSLCocOCw4HLmsOPy4fDjMOMy5rDiCDigJ7vo7/igKHigLDDi8OCw4zDmiA4MSIgY3g9Ijg5MS40OCIgY3k9IjU3OC4xOSIgZng9Ijg5MS40OCIgZnk9IjU3OC4xOSIgcj0iMTQxLjk4IiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNzMuNjIgNjEuMzQpIHNjYWxlKDEuMDMgMSkiIHhsaW5rOmhyZWY9IiNfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzgxIi8+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9Il/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfNzctMiIgZGF0YS1uYW1lPSLCocOCw4HLmsOPy4fDjMOMy5rDiCDigJ7vo7/igKHigLDDi8OCw4zDmiA3NyIgY3g9Ijg5OC4wOCIgY3k9IjU4NC43OSIgZng9Ijg5OC4wOCIgZnk9IjU4NC43OSIgcj0iMTE1LjEyIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKC0xOTguMTkgMTAyLjEzKSByb3RhdGUoLTIuNTIpIHNjYWxlKDEuMDMgMSkiIHhsaW5rOmhyZWY9IiNfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzc3Ii8+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9Il/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfMTY0IiBkYXRhLW5hbWU9IsKhw4LDgcuaw4/Lh8OMw4zLmsOIIOKAnu+jv+KAoeKAsMOLw4LDjMOaIDE2NCIgeDE9Ijg0LjkxIiB5MT0iNjM5LjE2IiB4Mj0iODQuOTEiIHkyPSI0MjkuNTUiIGdyYWRpZW50VHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjk0Ljk3IC05Mi45OSkgcm90YXRlKC0xNi4yOSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMDAwIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzYxNWJhMiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iX8OCw4Ffw49fw4zDjF/DiF/Di8OCw4zDml83MyIgZGF0YS1uYW1lPSLCocOCw4HLmsOPy4fDjMOMy5rDiCDigJ7vo7/igKHigLDDi8OCw4zDmiA3MyIgeDE9Ijc4Mi41MiIgeTE9IjYzOC43NSIgeDI9Ijc4Mi41MiIgeTI9IjUxOC4yNyIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgtMzMwLjYxIDE2OS4yNykgcm90YXRlKDQuNykgc2NhbGUoMS4yIDEpIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iI2ZmOTMxZiIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMwMDAiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9Il/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfMyIgZGF0YS1uYW1lPSLCocOCw4HLmsOPy4fDjMOMy5rDiCDigJ7vo7/igKHigLDDi8OCw4zDmiAzIiB4MT0iLTI4Ljc4IiB5MT0iMTAzMS41NCIgeDI9Ii0yOC43OCIgeTI9IjY4MC43IiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDI5NC45NyAtOTIuOTkpIHJvdGF0ZSgtMTYuMjkpIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzU0MDA2OCIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM4MTg5OWEiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9Il/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfODkiIGRhdGEtbmFtZT0iwqHDgsOBy5rDj8uHw4zDjMuaw4gg4oCe76O/4oCh4oCww4vDgsOMw5ogODkiIHgxPSItMjA1LjM1IiB5MT0iNDIxLjE3IiB4Mj0iLTIwNS4zNSIgeTI9IjE2MS4zNCIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgyOTQuOTcgLTkyLjk5KSByb3RhdGUoLTE2LjI5KSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNkOTg5OGUiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmZmIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzg5LTIiIGRhdGEtbmFtZT0iwqHDgsOBy5rDj8uHw4zDjMuaw4gg4oCe76O/4oCh4oCww4vDgsOMw5ogODkiIHgxPSI0NzEuNDgiIHkxPSI1NzguOTYiIHgyPSI0NzEuNDgiIHkyPSIzNTIuOTgiIHhsaW5rOmhyZWY9IiNfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzg5Ii8+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9Il/DgsOBX8OPX8OMw4xfw4hfw4vDgsOMw5pfODMtMiIgZGF0YS1uYW1lPSLCocOCw4HLmsOPy4fDjMOMy5rDiCDigJ7vo7/igKHigLDDi8OCw4zDmiA4MyIgeDE9Ii0yNDMuNzMiIHkxPSI1OTEuOTUiIHgyPSItMjQzLjczIiB5Mj0iMzM5LjM0IiB4bGluazpocmVmPSIjX8OCw4Ffw49fw4zDjF/DiF/Di8OCw4zDml84MyIvPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzgzLTMiIGRhdGEtbmFtZT0iwqHDgsOBy5rDj8uHw4zDjMuaw4gg4oCe76O/4oCh4oCww4vDgsOMw5ogODMiIHgxPSI0MjAuNjMiIHkxPSI3NzUuNTYiIHgyPSI0MjAuNjMiIHkyPSI0NjMuNDgiIHhsaW5rOmhyZWY9IiNfw4LDgV/Dj1/DjMOMX8OIX8OLw4LDjMOaXzgzIi8+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9IkRlZ3JhZGFkb19zaW5fbm9tYnJlXzExIiBkYXRhLW5hbWU9IkRlZ3JhZGFkbyBzaW4gbm9tYnJlIDExIiB4MT0iMjM5Ny40NCIgeTE9Ijk5OS4xNSIgeDI9IjIzOTcuNDQiIHkyPSI4MjIuNjYiIGdyYWRpZW50VHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzIxNS4wMikgcm90YXRlKC0xODApIHNjYWxlKDEgLTEpIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iLjQzIiBzdG9wLWNvbG9yPSIjY2NlMGY0Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iLjk5IiBzdG9wLWNvbG9yPSIjYTZlMGZmIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8ZyBjbGFzcz0iY2xzLTI1Ij4KICAgIDxnIGlkPSJDYXBhXzEiIGRhdGEtbmFtZT0iQ2FwYSAxIj4KICAgICAgPGc+CiAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMSIgZD0ibTE0Ni43MSw0MjAuMzhjLTUxLjQsMTcxLjU4LDkyLjU3LDUzMy43NSw0MzAuNTQsNDg4Ljg2LDM2MC44NS00Ny45MiwzODQuOC00MTEuODcsMzAxLjU2LTU4Mi44NEM3NDkuNDEsNjAuNiwyMzQuMjgsMTI4LjA1LDE0Ni43MSw0MjAuMzhaIi8+CiAgICAgICAgPHBhdGggY2xhc3M9ImNscy00IiBkPSJtMjAwLjg3LDQ5MC45N3M2NS43MS0xNzQuNDQsMjg4Ljk0LTIxOS45MmMyMzUuNTgtNDgsMzIyLjk2LDY4LjMsMzIyLjk2LDY4LjNMMjAwLjg3LDQ5MC45N1oiLz4KICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTciIGQ9Im04NDEuMiw3MzguOTZjLTE3LjIyLDI1LjE1LTM3Ljg4LDQ3LjYxLTYxLjE3LDY3LjIyLTk5LjQzLDgzLjgtMjQ1Ljk0LDExNC44NS0zNzIuMSw3My40NC0xMTcuMzktMzguNTctMTg5LjAyLTEzOS4xMi0yMTQuMzYtMjMzLjgxbC0uMDktLjI5Yy0xNS45MS01OS41My0xMy40NC0xMTYuNyw3LjM4LTE1NC41NiwxNDAuMS0yNTQuNTUsNTEyLjMzLTI2Ny4zNSw2MTguOTgtMTQ0LjA5LDcyLjQsODMuNTksMTEyLjQ1LDI1OS40NSwyMS4zNSwzOTIuMDhaIi8+CiAgICAgICAgPGVsbGlwc2UgY2xhc3M9ImNscy01IiBjeD0iMzkwLjEiIGN5PSI2NjAuNDgiIHJ4PSIxOTEuNSIgcnk9Ijc5Ljk3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTMxLjY2IDk4LjE4KSByb3RhdGUoLTEyLjI5KSIvPgogICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0ibTUzMy41Nyw2MjkuMjJjNy41NCwzNC42My01My41Nyw3Ny4zNS0xMzYuNDksOTUuNDItODIuOTMsMTguMDctMTU2LjI3LDQuNjQtMTYzLjgxLTI5Ljk5LTcuNTQtMzQuNjMsNTMuNTctNzcuMzUsMTM2LjQ5LTk1LjQyLDgyLjkzLTE4LjA3LDE1Ni4yNy00LjY0LDE2My44MiwyOS45OVoiLz4KICAgICAgICA8Zz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMjEiIGQ9Im0yMzkuODIsMjc2LjY2bC01Ni42NCw2NS42OWMtNS4wMSwxMC43OC05LjM1LDIzLjgxLTEzLjE5LDM3Ljg1bC0uMDQuMjJjLTIwLjgxLDc2LjMtMjYuNTMsMTg3LjU4LTI2LjUzLDE4Ny41OC00OC4zLTExNy44NS02NS45Ni0yMTUuNjMtNjYuOC0yODcuNzIsMCwwLS4wNS0uNTItLjA0LTEuNTgsMC0uOTcsMC0yLjQ0LjAyLTQuMjMsMC03LjUyLjE3LTE0LjguNTYtMjEuNjguMS0yLjU3LjIzLTUuMzYuNDctOC4xOSw0LjUxLTYxLjc5LDIyLjkyLTk4LjA5LDQyLjE0LTEwMy43MWwuMS0uMDNjMjEuNDMtNi4wNSw2MC43Niw0NC44NCw4OC41OCw4Ni4wNy4xNS4xNy4xOC4yNi4xOC4yNiwxOC4xLDI2LjgsMzEuMTgsNDkuNDYsMzEuMTgsNDkuNDZaIi8+CiAgICAgICAgICA8ZyBjbGFzcz0iY2xzLTIzIj4KICAgICAgICAgICAgPHJlY3QgY2xhc3M9ImNscy0xNiIgeD0iNzcuNjEiIHk9IjEzMy44MSIgd2lkdGg9IjE2OS41NCIgaGVpZ2h0PSI0MzAuOTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0zNi40NiAxOS4zOSkgcm90YXRlKC02LjE1KSIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMjMyLjYyLDExNC43N2wxNC4zLDEzMi44Niw4LjA4LDc1LjA0LDI5Ljg3LTMuMjJjLTE2LjY4LDI1LjUxLTM4LjI5LDQ5LjQzLTY0LjQzLDcwLjE3LTUyLjMsNDEuNDgtMTEyLjg2LDYyLjM2LTE2OC41MSw2Mi41OWwyNS43NS0yLjc3TDQzLjgzLDEzNS4xbDE4OC43OC0yMC4zM1oiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTIzMi42MiwxMTQuNzdsMTQuMjYsMTMyLjQyLDY4LjYxLTcuMzljLTEyLjY0LDUzLjA3LTQ2LjEsMTA2LjIzLTk3LjM3LDE0Ni44OS01MS4yNyw0MC42Ni0xMTAuNjUsNjEuMTMtMTY1LjIxLDYxLjM2bDI0LjMzLTIuNjJMNDMuODMsMTM1LjFsMTg4Ljc4LTIwLjMzWiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMjMyLjYyLDExNC43N2wxNC4yMSwxMzEuOTgsNjQuNC02LjkzYy0xMi4zOSw1Mi4wMS00NS4xOCwxMDQuMS05NS40MiwxNDMuOTUtNTAuMjUsMzkuODUtMTA4LjQ0LDU5LjkxLTE2MS45LDYwLjEzbDIyLjkyLTIuNDdMNDMuODMsMTM1LjFsMTg4Ljc4LTIwLjMzWiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMjMyLjYyLDExNC43N2wxNC4xNiwxMzEuNTUsNjAuMTgtNi40OGMtMTIuMTQsNTAuOTUtNDQuMjUsMTAxLjk4LTkzLjQ3LDE0MS4wMi00OS4yMiwzOS4wNC0xMDYuMjIsNTguNjktMTU4LjYsNTguOWwyMS41LTIuMzFMNDMuODMsMTM1LjFsMTg4Ljc4LTIwLjMzWiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMjMyLjYyLDExNC43N2wxNC4xMiwxMzEuMTEsNTUuOTYtNi4wM2MtMTEuODgsNDkuODktNDMuMzMsOTkuODUtOTEuNTMsMTM4LjA4LTQ4LjE5LDM4LjIyLTEwNC4wMSw1Ny40Ny0xNTUuMjksNTcuNjhsMjAuMDgtMi4xNkw0My44MywxMzUuMWwxODguNzgtMjAuMzNaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0yMzIuNjIsMTE0Ljc3bDE0LjA3LDEzMC42Nyw1MS43NS01LjU3Yy0xMS42Myw0OC44My00Mi40MSw5Ny43My04OS41OCwxMzUuMTQtNDcuMTcsMzcuNDEtMTAxLjgsNTYuMjQtMTUxLjk5LDU2LjQ1bDE4LjY2LTIuMDEtMzEuNjktMjk0LjM2LDE4OC43OC0yMC4zM1oiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTIzMi42MiwxMTQuNzdsMTQuMDIsMTMwLjI0LDQ3LjUzLTUuMTJjLTExLjM4LDQ3Ljc2LTQxLjQ5LDk1LjYxLTg3LjYzLDEzMi4yLTQ2LjE0LDM2LjYtOTkuNTgsNTUuMDItMTQ4LjY5LDU1LjIybDE3LjI0LTEuODYtMzEuMjYtMjkwLjM2LDE4OC43OC0yMC4zM1oiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTIzMi42MiwxMTQuNzdsMTMuOTgsMTI5LjgsNDMuMzEtNC42NmMtMTEuMTMsNDYuNy00MC41Nyw5My40OC04NS42OCwxMjkuMjctNDUuMTIsMzUuNzgtOTcuMzcsNTMuOC0xNDUuMzgsNTMuOTlsMTUuODMtMS43LTMwLjgzLTI4Ni4zNywxODguNzgtMjAuMzNaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0yMzIuODcsMTE3LjE3bDEzLjY3LDEyNi45NiwzOS4xLTQuMjFjLTEwLjg3LDQ1LjY0LTM5LjY0LDkxLjM2LTgzLjc0LDEyNi4zMy00NC4wOSwzNC45Ny05NS4xNiw1Mi41Ny0xNDIuMDgsNTIuNzdsMTQuNDEtMS41NS0zMC40LTI4Mi4zNywxMDcuNTUtMTEuNTgtNi41OS02MS4xOGM0Ni45Mi0uMTksODkuNjksMTcuMDMsMTE3LjE5LDUxLjdsLTI5LjExLDMuMTNaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0yMzMuMTUsMTE5LjY5bDEzLjM1LDEyNC4wMSwzNC44OC0zLjc2Yy0xMC42Miw0NC41OC0zOC43Miw4OS4yMy04MS43OSwxMjMuMzktNDMuMDcsMzQuMTYtOTIuOTUsNTEuMzUtMTM4Ljc3LDUxLjU0bDEyLjk5LTEuNC0yOS45Ny0yNzguMzgsMTA2LjEzLTExLjQzLTYuMTYtNTcuMThjNDUuODMtLjE5LDg3LjYsMTYuNjMsMTE0LjQ2LDUwLjVsLTI1LjEzLDIuNzFaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0yNTQuNTYsMTE5LjkzYzUyLjQ1LDY2LjEzLDI2LjgsMTczLjc5LTU3LjI5LDI0MC40OC00Mi4wNCwzMy4zNC05MC43Myw1MC4xMy0xMzUuNDcsNTAuMzFsMTEuNTctMS4yNS0yOS41NC0yNzQuMzgsMTA0LjcyLTExLjI3LTUuNzMtNTMuMTljNDQuNzQtLjE4LDg1LjUyLDE2LjIzLDExMS43NCw0OS4zWiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMjUwLjg1LDEyMi44OGM1MS4xNyw2NC41MSwyNi4xNCwxNjkuNTYtNTUuODksMjM0LjYyLTQxLjAyLDMyLjUzLTg4LjUyLDQ4LjkxLTEzMi4xNyw0OS4wOWwxMC4xNS0xLjA5LTI5LjExLTI3MC4zOS0zNC4xNi0xMS4yM2M4Mi4wMy02NS4wNiwxOTAuMDEtNjUuNTEsMjQxLjE4LS45OVoiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTI0Ny4xMywxMjUuODJjNDkuODksNjIuOSwyNS40OSwxNjUuMzItNTQuNDksMjI4Ljc1LTM5Ljk5LDMxLjcyLTg2LjMxLDQ3LjY4LTEyOC44Niw0Ny44Nmw4LjczLS45NC0yOC42OC0yNjYuMzktMzEuODUtOC4zMWM3OS45OC02My40NCwxODUuMjYtNjMuODcsMjM1LjE1LS45N1oiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTI0My40MiwxMjguNzdjNDguNjEsNjEuMjksMjQuODQsMTYxLjA4LTUzLjEsMjIyLjg5LTM4Ljk3LDMwLjktODQuMDksNDYuNDYtMTI1LjU2LDQ2LjYzbDcuMzItLjc5LTI4LjI1LTI2Mi40LTI5LjUzLTUuMzljNzcuOTMtNjEuODEsMTgwLjUxLTYyLjIzLDIyOS4xMi0uOTRaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0yMzkuNzEsMTMxLjcxYzQ3LjMzLDU5LjY3LDI0LjE4LDE1Ni44NC01MS43LDIxNy4wMi0zNy45NCwzMC4wOS04MS44OCw0NS4yNC0xMjIuMjUsNDUuNDFsNS45LS42NC0yNy44Mi0yNTguNC0yNy4yMi0yLjQ3Yzc1Ljg4LTYwLjE4LDE3NS43Ni02MC41OSwyMjMuMDktLjkyWiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMjM1Ljk5LDEzNC42NmM0Ni4wNSw1OC4wNiwyMy41MywxNTIuNi01MC4zLDIxMS4xNS0zNi45MSwyOS4yOC03OS42Nyw0NC4wMi0xMTguOTUsNDQuMThsNC40OC0uNDgtMjcuMzktMjU0LjQxLTI0LjkuNDVjNzMuODMtNTguNTYsMTcxLjAxLTU4Ljk1LDIxNy4wNi0uODlaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0yMzIuMjgsMTM3LjZjNDQuNzcsNTYuNDUsMjIuODgsMTQ4LjM2LTQ4LjksMjA1LjI5LTM1Ljg5LDI4LjQ2LTc3LjQ2LDQyLjc5LTExNS42NCw0Mi45NWwzLjA2LS4zMy0yNi44Ni0yNDkuNDgtMjIuNjgsMi40NGM3MS43OC01Ni45MywxNjYuMjYtNTcuMzIsMjExLjAzLS44N1oiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTIyOC41NywxNDAuNTVjNDMuNDksNTQuODQsMjIuMjIsMTQ0LjEyLTQ3LjUxLDE5OS40Mi0zNC44NiwyNy42NS03NS4yNCw0MS41Ny0xMTIuMzQsNDEuNzJsMS42NC0uMTgtMjYuMS0yNDIuMzYtMjAuNzEsMi4yM2M2OS43My01NS4zLDE2MS41MS01NS42OCwyMDUtLjg0WiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMjI0Ljg1LDE0My40OWM0Mi4yMSw1My4yMiwyMS41NywxMzkuODgtNDYuMTEsMTkzLjU2LTMzLjg0LDI2Ljg0LTczLjAzLDQwLjM1LTEwOS4wNCw0MC41bC4yMy0uMDItMjUuMzMtMjM1LjIzLTE4LjczLDIuMDJjNjcuNjgtNTMuNjgsMTU2Ljc2LTU0LjA0LDE5OC45Ny0uODJaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0yMjEuMTQsMTQ2LjQ0YzQwLjkzLDUxLjYxLDIwLjkxLDEzNS42NC00NC43MSwxODcuNjktMzIuODEsMjYuMDItNzAuODIsMzkuMTMtMTA1LjczLDM5LjI3LTE3LjQ2LjA3LTM0LjE0LTMuMS00OS4wMi05LjUxbDQ2LjI2LTQuOTgtMjIuOTktMjEzLjQ4LTE2Ljc1LDEuOGM2NS42My01Mi4wNSwxNTIuMDEtNTIuNCwxOTIuOTQtLjc5WiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMjE3LjQzLDE0OS4zOGMzOS42NSw1MCwyMC4yNiwxMzEuNDEtNDMuMzEsMTgxLjgzLTMxLjc5LDI1LjIxLTY4LjYsMzcuOS0xMDIuNDMsMzguMDQtMTYuOTEuMDctMzMuMDgtMy00Ny40OS05LjIxbDQzLjM2LTQuNjctMjIuMjctMjA2LjgxLTE0Ljc3LDEuNTljNjMuNTgtNTAuNDIsMTQ3LjI2LTUwLjc3LDE4Ni45MS0uNzdaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0yMTMuNzEsMTUyLjMzYzM4LjM4LDQ4LjM5LDE5LjYxLDEyNy4xNy00MS45MiwxNzUuOTYtMzAuNzYsMjQuNC02Ni4zOSwzNi42OC05OS4xMiwzNi44Mi0xNi4zNy4wNy0zMi4wMS0yLjktNDUuOTYtOC45MWw0MC40Ni00LjM2LTIxLjU1LTIwMC4xNC0xMi43OSwxLjM4YzYxLjUyLTQ4LjgsMTQyLjUxLTQ5LjEzLDE4MC44OC0uNzRaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0yMTAsMTU1LjI3YzM3LjEsNDYuNzcsMTguOTUsMTIyLjkzLTQwLjUyLDE3MC4xLTU5LjQ3LDQ3LjE3LTEzNy43Niw0Ny40OS0xNzQuODYuNzJsNjguOTctNy40My0xNy42NC0xNjMuODQtMTAuODEsMS4xNmM1OS40Ny00Ny4xNywxMzcuNzYtNDcuNDksMTc0Ljg1LS43MloiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTIwNi4yOSwxNTguMjJjMzUuODIsNDUuMTYsMTguMywxMTguNjktMzkuMTIsMTY0LjIzLTU3LjQyLDQ1LjU0LTEzMy4wMSw0NS44NS0xNjguODMuNjlsNjQuOTktNy0xNy4wMy0xNTguMTktOC44My45NWM1Ny40Mi00NS41NCwxMzMuMDEtNDUuODUsMTY4LjgzLS42OVoiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTIwMi41NywxNjEuMTZjMzQuNTQsNDMuNTUsMTcuNjUsMTE0LjQ1LTM3LjczLDE1OC4zNy01NS4zNyw0My45Mi0xMjguMjYsNDQuMjItMTYyLjguNjdsNjEtNi41Ny0xNi40Mi0xNTIuNTQtNi44NS43NGM1NS4zNy00My45MiwxMjguMjYtNDQuMjIsMTYyLjgtLjY3WiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMTk4Ljg2LDE2NC4xMWMzMy4yNiw0MS45MywxNi45OSwxMTAuMjEtMzYuMzMsMTUyLjUtNTMuMzIsNDIuMjktMTIzLjUxLDQyLjU4LTE1Ni43Ny42NGw1Ny4wMi02LjE0LTE1LjgyLTE0Ni44OS00Ljg3LjUyYzUzLjMyLTQyLjI5LDEyMy41MS00Mi41OCwxNTYuNzctLjY0WiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMTk1LjE1LDE2Ny4wNWMzMS45OCw0MC4zMiwxNi4zNCwxMDUuOTctMzQuOTMsMTQ2LjYzLTUxLjI3LDQwLjY2LTExOC43Niw0MC45NC0xNTAuNzQuNjJsNTMuMDMtNS43MS0xNS4yMS0xNDEuMjQtMi45LjMxYzUxLjI3LTQwLjY2LDExOC43Ni00MC45NCwxNTAuNzQtLjYyWiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMTkxLjQzLDE3MGMzMC43LDM4LjcxLDE1LjY5LDEwMS43My0zMy41MywxNDAuNzctNDkuMjIsMzkuMDQtMTE0LjAxLDM5LjMtMTQ0LjcxLjZsNDkuMDUtNS4yOC0xNC42LTEzNS41OS0uOTIuMWM0OS4yMi0zOS4wNCwxMTQuMDEtMzkuMywxNDQuNzEtLjZaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xODcuNzIsMTcyLjk0YzI5LjQyLDM3LjA5LDE1LjAzLDk3LjQ5LTMyLjE0LDEzNC45LTQ3LjE3LDM3LjQxLTEwOS4yNiwzNy42Ny0xMzguNjguNTctMjkuNDItMzcuMDktMTUuMDMtOTcuNDksMzIuMTQtMTM0LjksNDcuMTctMzcuNDEsMTA5LjI2LTM3LjY3LDEzOC42OC0uNTdaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xODQuMDEsMTc1Ljg5YzI4LjE0LDM1LjQ4LDE0LjM4LDkzLjI2LTMwLjc0LDEyOS4wNC00NS4xMiwzNS43OC0xMDQuNTEsMzYuMDMtMTMyLjY1LjU1LTI4LjE0LTM1LjQ4LTE0LjM4LTkzLjI2LDMwLjc0LTEyOS4wNCw0NS4xMi0zNS43OCwxMDQuNTEtMzYuMDMsMTMyLjY1LS41NVoiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTE4MC4yOSwxNzguODNjMjYuODYsMzMuODcsMTMuNzMsODkuMDItMjkuMzQsMTIzLjE3LTQzLjA3LDM0LjE2LTk5Ljc2LDM0LjM5LTEyNi42Mi41Mi0yNi44Ni0zMy44Ny0xMy43My04OS4wMiwyOS4zNC0xMjMuMTcsNDMuMDctMzQuMTYsOTkuNzYtMzQuMzksMTI2LjYyLS41MloiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTE3Ni41OCwxODEuNzhjMjUuNTgsMzIuMjYsMTMuMDcsODQuNzgtMjcuOTUsMTE3LjMxLTQxLjAyLDMyLjUzLTk1LjAxLDMyLjc1LTEyMC41OS41LTI1LjU4LTMyLjI2LTEzLjA3LTg0Ljc4LDI3Ljk0LTExNy4zMSw0MS4wMi0zMi41Myw5NS4wMS0zMi43NSwxMjAuNTktLjVaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xNzIuODcsMTg0LjcyYzI0LjMsMzAuNjQsMTIuNDIsODAuNTQtMjYuNTUsMTExLjQ0LTM4Ljk3LDMwLjktOTAuMjYsMzEuMTItMTE0LjU2LjQ3LTI0LjMtMzAuNjQtMTIuNDItODAuNTQsMjYuNTUtMTExLjQ0LDM4Ljk3LTMwLjksOTAuMjYtMzEuMTIsMTE0LjU2LS40N1oiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTE2OS4xNSwxODcuNjdjMjMuMDMsMjkuMDMsMTEuNzYsNzYuMy0yNS4xNSwxMDUuNTgtMzYuOTEsMjkuMjgtODUuNTEsMjkuNDgtMTA4LjUzLjQ1LTIzLjAyLTI5LjAzLTExLjc2LTc2LjMsMjUuMTUtMTA1LjU4LDM2LjkyLTI5LjI4LDg1LjUxLTI5LjQ4LDEwOC41My0uNDVaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xNjUuNDQsMTkwLjYxYzIxLjc1LDI3LjQyLDExLjExLDcyLjA2LTIzLjc1LDk5LjcxLTM0Ljg2LDI3LjY1LTgwLjc2LDI3Ljg0LTEwMi41LjQyLTIxLjc1LTI3LjQyLTExLjExLTcyLjA2LDIzLjc1LTk5LjcxLDM0Ljg2LTI3LjY1LDgwLjc2LTI3Ljg0LDEwMi41LS40MloiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTE2MS43MiwxOTMuNTZjMjAuNDcsMjUuODEsMTAuNDYsNjcuODItMjIuMzYsOTMuODUtMzIuODEsMjYuMDItNzYuMDEsMjYuMi05Ni40Ny40LTIwLjQ3LTI1LjgxLTEwLjQ2LTY3LjgyLDIyLjM2LTkzLjg1LDMyLjgxLTI2LjAyLDc2LjAxLTI2LjIsOTYuNDctLjRaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xNTguMDEsMTk2LjVjMTkuMTksMjQuMTksOS44LDYzLjU4LTIwLjk2LDg3Ljk4LTMwLjc2LDI0LjQtNzEuMjYsMjQuNTYtOTAuNDQuMzctMTkuMTktMjQuMTktOS44LTYzLjU4LDIwLjk2LTg3Ljk4LDMwLjc2LTI0LjQsNzEuMjUtMjQuNTYsOTAuNDQtLjM3WiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMTU0LjMsMTk5LjQ1YzE3LjkxLDIyLjU4LDkuMTUsNTkuMzQtMTkuNTYsODIuMTItMjguNzEsMjIuNzctNjYuNSwyMi45My04NC40MS4zNS0xNy45MS0yMi41OC05LjE1LTU5LjM0LDE5LjU2LTgyLjEyLDI4LjcxLTIyLjc3LDY2LjUtMjIuOTMsODQuNDEtLjM1WiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMTUwLjU4LDIwMi4zOWMxNi42MywyMC45Nyw4LjUsNTUuMTEtMTguMTYsNzYuMjUtMjYuNjYsMjEuMTUtNjEuNzUsMjEuMjktNzguMzguMzItMTYuNjMtMjAuOTctOC41LTU1LjExLDE4LjE2LTc2LjI1LDI2LjY2LTIxLjE1LDYxLjc1LTIxLjI5LDc4LjM4LS4zMloiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTE0Ni44NywyMDUuMzRjMTUuMzUsMTkuMzUsNy44NCw1MC44Ny0xNi43Nyw3MC4zOC0yNC42MSwxOS41Mi01NywxOS42NS03Mi4zNS4zLTE1LjM1LTE5LjM1LTcuODQtNTAuODcsMTYuNzctNzAuMzgsMjQuNjEtMTkuNTIsNTctMTkuNjUsNzIuMzUtLjNaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xNDMuMTYsMjA4LjI4YzE0LjA3LDE3Ljc0LDcuMTksNDYuNjMtMTUuMzcsNjQuNTItMjIuNTYsMTcuODktNTIuMjUsMTguMDEtNjYuMzIuMjctMTQuMDctMTcuNzQtNy4xOS00Ni42MywxNS4zNy02NC41MiwyMi41Ni0xNy44OSw1Mi4yNS0xOC4wMSw2Ni4zMi0uMjdaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xMzkuNDUsMjExLjIzYzEyLjc5LDE2LjEzLDYuNTQsNDIuMzktMTMuOTcsNTguNjYtMjAuNTEsMTYuMjYtNDcuNSwxNi4zOC02MC4yOS4yNS0xMi43OS0xNi4xMy02LjU0LTQyLjM5LDEzLjk3LTU4LjY1LDIwLjUxLTE2LjI3LDQ3LjUtMTYuMzgsNjAuMy0uMjVaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xMzUuNzMsMjE0LjE3YzExLjUxLDE0LjUyLDUuODgsMzguMTUtMTIuNTgsNTIuNzktMTguNDYsMTQuNjQtNDIuNzUsMTQuNzQtNTQuMjcuMjItMTEuNTEtMTQuNTItNS44OC0zOC4xNSwxMi41OC01Mi43OSwxOC40Ni0xNC42NCw0Mi43NS0xNC43NCw1NC4yNy0uMjJaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xMzIuMDIsMjE3LjEyYzEwLjIzLDEyLjksNS4yMywzMy45MS0xMS4xOCw0Ni45Mi0xNi40MSwxMy4wMS0zOCwxMy4xLTQ4LjI0LjItMTAuMjMtMTIuOS01LjIzLTMzLjkxLDExLjE4LTQ2LjkyLDE2LjQxLTEzLjAxLDM4LTEzLjEsNDguMjQtLjJaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xMjguMywyMjAuMDZjOC45NSwxMS4yOSw0LjU4LDI5LjY3LTkuNzgsNDEuMDYtMTQuMzYsMTEuMzktMzMuMjUsMTEuNDYtNDIuMjEuMTctOC45NS0xMS4yOS00LjU4LTI5LjY3LDkuNzgtNDEuMDYsMTQuMzYtMTEuMzksMzMuMjUtMTEuNDYsNDIuMjEtLjE3WiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMTI0LjU5LDIyMy4wMWM3LjY3LDkuNjgsMy45MiwyNS40My04LjM4LDM1LjE5LTEyLjMsOS43Ni0yOC41LDkuODMtMzYuMTguMTUtNy42OC05LjY4LTMuOTItMjUuNDMsOC4zOC0zNS4xOSwxMi4zLTkuNzYsMjguNS05LjgzLDM2LjE4LS4xNVoiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTEyMC44OCwyMjUuOTVjNi40LDguMDYsMy4yNywyMS4xOS02Ljk5LDI5LjMzLTEwLjI1LDguMTMtMjMuNzUsOC4xOS0zMC4xNS4xMi02LjQtOC4wNi0zLjI3LTIxLjE5LDYuOTktMjkuMzMsMTAuMjUtOC4xMywyMy43NS04LjE5LDMwLjE1LS4xMloiLz4KICAgICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTExNy4xNiwyMjguOWM1LjEyLDYuNDUsMi42MSwxNi45Ni01LjU5LDIzLjQ2LTguMiw2LjUxLTE5LDYuNTUtMjQuMTIuMS01LjEyLTYuNDUtMi42MS0xNi45Niw1LjU5LTIzLjQ2LDguMi02LjUxLDE5LTYuNTUsMjQuMTItLjFaIi8+CiAgICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im0xMTMuNDUsMjMxLjg1YzMuODQsNC44NCwxLjk2LDEyLjcyLTQuMTksMTcuNi02LjE1LDQuODgtMTQuMjUsNC45MS0xOC4wOS4wNy0zLjg0LTQuODQtMS45Ni0xMi43Miw0LjE5LTE3LjYsNi4xNS00Ljg4LDE0LjI1LTQuOTEsMTguMDktLjA3WiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMTA5Ljc0LDIzNC43OWMyLjU2LDMuMjMsMS4zMSw4LjQ4LTIuNzksMTEuNzMtNC4xLDMuMjUtOS41LDMuMjgtMTIuMDYuMDUtMi41Ni0zLjIzLTEuMzEtOC40OCwyLjgtMTEuNzMsNC4xLTMuMjUsOS41LTMuMjgsMTIuMDYtLjA1WiIvPgogICAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtMTA2LjAyLDIzNy43NGMxLjI4LDEuNjEuNjUsNC4yNC0xLjQsNS44Ni0yLjA1LDEuNjMtNC43NSwxLjY0LTYuMDMuMDItMS4yOC0xLjYxLS42NS00LjI0LDEuNC01Ljg2LDIuMDUtMS42Myw0Ljc1LTEuNjQsNi4wMy0uMDJaIi8+CiAgICAgICAgICA8L2c+CiAgICAgICAgPC9nPgogICAgICAgIDxnIGNsYXNzPSJjbHMtMjQiPgogICAgICAgICAgPHJlY3QgY2xhc3M9ImNscy0xNiIgeD0iODE5LjUxIiB5PSIxMDQuNjMiIHdpZHRoPSIxNTcuMjgiIGhlaWdodD0iNDI5LjM4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMjkuMDIgOTcuOTkpIHJvdGF0ZSgtNi4xNSkiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im05NjIuMzgsODYuMjVsMTQuODUsMTM3LjkyLDcuODksNzMuMjMsNDkuNTYtNS4zNGMtMTYuMjgsMjQuODktMzcuMzcsNDguMjQtNjIuODksNjguNDgtNTEuMDQsNDAuNDgtMTEwLjE1LDYwLjg2LTE2NC40Niw2MS4wOGwxMi4zOC0xLjMzLTMzLjkyLTMxNS4wNCwxNzYuNTktMTkuMDFaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTYyLjM4LDg2LjI1bDE0LjgsMTM3LjUsNy43Myw3MS44LDQ2LjI3LTQuOThjLTE1Ljk2LDI0LjQxLTM2LjYzLDQ3LjMtNjEuNjUsNjcuMTQtNTAuMDQsMzkuNjktMTA3Ljk5LDU5LjY3LTE2MS4yNCw1OS44OGwxMS0xLjE4LTMzLjUtMzExLjE0LDE3Ni41OS0xOS4wMVoiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im05NjIuMzgsODYuMjVsMTQuNzYsMTM3LjA3LDcuNTgsNzAuMzYsNDIuOTctNC42M2MtMTUuNjQsMjMuOTItMzUuOSw0Ni4zNS02MC40Miw2NS44LTQ5LjA0LDM4Ljg5LTEwNS44Myw1OC40Ny0xNTguMDEsNTguNjlsOS42MS0xLjA0LTMzLjA4LTMwNy4yNCwxNzYuNTktMTkuMDFaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTYyLjM4LDg2LjI1bDE0LjcxLDEzNi42NCw3LjQyLDY4LjkzLDM5LjY4LTQuMjdjLTE1LjMyLDIzLjQzLTM1LjE3LDQ1LjQxLTU5LjE5LDY0LjQ2LTQ4LjA0LDM4LjEtMTAzLjY3LDU3LjI4LTE1NC43OSw1Ny40OWw4LjIzLS44OS0zMi42Ni0zMDMuMzQsMTc2LjU5LTE5LjAxWiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk2Mi40Niw4Ny4wM2wxNC41OCwxMzUuNDQsNy4yNyw2Ny40OSwzNi4zOS0zLjkyYy0xNSwyMi45NC0zNC40NCw0NC40Ni01Ny45NSw2My4xMS00Ny4wNCwzNy4zMS0xMDEuNTEsNTYuMDktMTUxLjU2LDU2LjI5bDYuODUtLjc0LTMyLjI0LTI5OS40NCwxMjMuMjYtMTMuMjctNy4yMi02Ny4wNWM1MC4wNS0uMjEsOTUuNjgsMTguMTYsMTI1LjAyLDU1LjE1bC02NC4zOCw2LjkzWiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk2Mi43Myw4OS40OWwxNC4yNywxMzIuNTYsNy4xMSw2Ni4wNSwzMy4wOS0zLjU2Yy0xNC42OCwyMi40NS0zMy43LDQzLjUxLTU2LjcyLDYxLjc3LTQ2LjA0LDM2LjUxLTk5LjM1LDU0Ljg5LTE0OC4zNCw1NS4wOWw1LjQ2LS41OS0zMS44Mi0yOTUuNTQsMTIxLjg3LTEzLjEyLTYuOC02My4xNWM0OC45OS0uMiw5My42NCwxNy43OCwxMjIuMzYsNTMuOThsLTYwLjQ5LDYuNTFaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTYyLjk5LDkxLjk0bDEzLjk2LDEyOS42OCw2Ni44LTcuMTljLTExLjEsNDYuNjItNDAuNDksOTMuMzEtODUuNTMsMTI5LjAzLTQ1LjAzLDM1LjcyLTk3LjE5LDUzLjctMTQ1LjExLDUzLjlsNC4wOC0uNDQtMzEuNC0yOTEuNjQsMTIwLjQ5LTEyLjk3LTYuMzgtNTkuMjVjNDcuOTItLjIsOTEuNjEsMTcuMzksMTE5LjcsNTIuODFsLTU2LjYsNi4wOVoiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im05NjMuMjYsOTQuNGwxMy42NSwxMjYuNzksNjIuNjgtNi43NWMtMTAuODYsNDUuNTgtMzkuNTksOTEuMjQtODMuNjMsMTI2LjE2LTQ0LjA0LDM0LjkyLTk1LjAzLDUyLjUxLTE0MS44OSw1Mi43bDIuNjktLjI5LTMwLjk4LTI4Ny43NSwxMTkuMTEtMTIuODItNS45Ni01NS4zNWM0Ni44Ni0uMTksODkuNTcsMTcsMTE3LjA0LDUxLjYzbC01Mi43MSw1LjY4WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk2My41Miw5Ni44NmwxMy4zNCwxMjMuOTEsNTguNTctNi4zMWMtMTAuNjEsNDQuNTQtMzguNjksODkuMTYtODEuNzMsMTIzLjI5LTQzLjAzLDM0LjEzLTkyLjg3LDUxLjMxLTEzOC42Nyw1MS41bDEuMzEtLjE0LTMwLjU2LTI4My44NSwxMTcuNzItMTIuNjgtNS41NC01MS40NWM0NS43OS0uMTksODcuNTMsMTYuNjIsMTE0LjM4LDUwLjQ2bC00OC44Miw1LjI2WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk2My43OSw5OS4zMWwxMy4wMywxMjEuMDMsNTQuNDUtNS44NmMtMTAuMzYsNDMuNTEtMzcuNzksODcuMDktNzkuODMsMTIwLjQzLTQyLjAzLDMzLjM0LTkwLjcxLDUwLjEyLTEzNS40NCw1MC4zLTIyLjM2LjA5LTQzLjc0LTMuOTctNjIuOC0xMi4xOGw2MC43MS02LjU0LTI4LjEzLTI2MS4yMy0yNC4yMi05Ljc4Yzg0LjA3LTY2LjY3LDE5NC43Mi02Ny4xMywyNDcuMTYtMS4wMmwtNDQuOTMsNC44NFoiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im05NjQuMDUsMTAxLjc3bDEyLjcyLDExOC4xNSw1MC4zNC01LjQyYy0xMC4xMiw0Mi40Ny0zNi44OSw4NS4wMi03Ny45MiwxMTcuNTYtNDEuMDMsMzIuNTQtODguNTUsNDguOTMtMTMyLjIyLDQ5LjExLTIxLjgzLjA5LTQyLjctMy44Ny02MS4zLTExLjg5bDU3Ljg4LTYuMjMtMjcuNzYtMjU3Ljc3LTIxLjk2LTYuOTNjODIuMDctNjUuMDksMTkwLjA5LTY1LjUzLDI0MS4yNy0uOTlsLTQxLjA0LDQuNDJaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTY0LjMyLDEwNC4yMmwxMi40MSwxMTUuMjcsNDYuMjItNC45OGMtOS44Nyw0MS40NC0zNS45OSw4Mi45NC03Ni4wMiwxMTQuNjktNDAuMDMsMzEuNzUtODYuMzksNDcuNzMtMTI4Ljk5LDQ3LjkxLTIxLjMuMDktNDEuNjUtMy43OC01OS44MS0xMS42bDU1LjA1LTUuOTMtMjcuMzgtMjU0LjMyLTE5LjctNC4wOGM4MC4wNi02My41LDE4NS40NS02My45MywyMzUuMzktLjk3bC0zNy4xNiw0WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk2NC41OCwxMDYuNjhsMTIuMSwxMTIuMzksNDIuMTEtNC41M2MtOS42Miw0MC40LTM1LjA5LDgwLjg3LTc0LjEyLDExMS44Mi0zOS4wMywzMC45Ni04NC4yMyw0Ni41NC0xMjUuNzcsNDYuNzEtMjAuNzcuMDktNDAuNjEtMy42OC01OC4zMS0xMS4zMWw1Mi4yMS01LjYyLTI3LjAxLTI1MC44Ny0xNy40NC0xLjIzYzc4LjA2LTYxLjkxLDE4MC44MS02Mi4zMywyMjkuNS0uOTRsLTMzLjI3LDMuNThaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTk0LjIyLDEwNS45N2M0Ny40NCw1OS44MiwyNC4yNCwxNTcuMjEtNTEuODIsMjE3LjUzLTM4LjAzLDMwLjE2LTgyLjA3LDQ1LjM1LTEyMi41NCw0NS41MS0yMC4yMy4wOC0zOS41Ny0zLjU5LTU2LjgyLTExLjAybDQ5LjM4LTUuMzItMjYuNjQtMjQ3LjQxLTE1LjE4LDEuNjJjNzYuMDYtNjAuMzIsMTc2LjE4LTYwLjc0LDIyMy42Mi0uOTJaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTkwLjYsMTA4Ljg1YzQ2LjE5LDU4LjI0LDIzLjYsMTUzLjA3LTUwLjQ2LDIxMS44MS0zNy4wMywyOS4zNy03OS45MSw0NC4xNS0xMTkuMzIsNDQuMzEtMTkuNy4wOC0zOC41My0zLjQ5LTU1LjMyLTEwLjczbDQ2LjU1LTUuMDEtMjUuOTQtMjQwLjkxLTEzLjI1LDEuNDNjNzQuMDYtNTguNzQsMTcxLjU0LTU5LjE0LDIxNy43My0uOVoiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im05ODYuOTcsMTExLjcyYzQ0Ljk0LDU2LjY3LDIyLjk2LDE0OC45NC00OS4wOSwyMDYuMDgtMzYuMDMsMjguNTctNzcuNzYsNDIuOTYtMTE2LjA5LDQzLjEyLTE5LjE3LjA4LTM3LjQ5LTMuNC01My44My0xMC40NGw0My43Mi00LjcxLTI1LjI0LTIzNC40LTExLjMyLDEuMjJjNzIuMDYtNTcuMTUsMTY2LjkxLTU3LjU0LDIxMS44NS0uODdaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTgzLjM1LDExNC41OWM0My43LDU1LjA5LDIyLjMzLDE0NC44LTQ3LjczLDIwMC4zNi0zNS4wMywyNy43OC03NS41OSw0MS43Ny0xMTIuODcsNDEuOTItMTguNjQuMDgtMzYuNDUtMy4zLTUyLjMzLTEwLjE1bDQwLjg5LTQuNC0yNC41NC0yMjcuODktOS4zOSwxLjAxYzcwLjA2LTU1LjU2LDE2Mi4yNy01NS45NCwyMDUuOTYtLjg1WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk3OS43MywxMTcuNDdjNDIuNDUsNTMuNTIsMjEuNjksMTQwLjY2LTQ2LjM2LDE5NC42NC0zNC4wMywyNi45OS03My40NCw0MC41Ny0xMDkuNjQsNDAuNzItMTguMS4wNy0zNS40MS0zLjIxLTUwLjg0LTkuODZsMzguMDYtNC4xLTIzLjg0LTIyMS4zOC03LjQ2LjhjNjguMDUtNTMuOTcsMTU3LjYzLTU0LjM0LDIwMC4wOC0uODJaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTc2LjEsMTIwLjM0YzQxLjIsNTEuOTUsMjEuMDUsMTM2LjUyLTQ1LDE4OC45MS02Ni4wNSw1Mi4zOS0xNTMsNTIuNzQtMTk0LjE5LjhsNzAuMTItNy41NS0xOS41OS0xODEuOTUtNS41Mi41OWM2Ni4wNS01Mi4zOSwxNTMtNTIuNzQsMTk0LjE5LS44WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk3Mi40OCwxMjMuMjJjMzkuOTUsNTAuMzcsMjAuNDEsMTMyLjM5LTQzLjY0LDE4My4xOS02NC4wNSw1MC44LTE0OC4zNiw1MS4xNS0xODguMzEuNzdsNjYuMjMtNy4xMy0xOS0xNzYuNDQtMy41OS4zOWM2NC4wNS01MC44LDE0OC4zNi01MS4xNSwxODguMzEtLjc3WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk2OC44NSwxMjYuMDljMzguNyw0OC44LDE5Ljc4LDEyOC4yNS00Mi4yNywxNzcuNDYtNjIuMDUsNDkuMjEtMTQzLjcyLDQ5LjU1LTE4Mi40My43NWw2Mi4zNC02LjcxLTE4LjQtMTcwLjkzLTEuNjYuMThjNjIuMDUtNDkuMjEsMTQzLjcyLTQ5LjU1LDE4Mi40My0uNzVaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTY1LjIzLDEyOC45N2MzNy40NSw0Ny4yMiwxOS4xNCwxMjQuMTEtNDAuOTEsMTcxLjc0LTYwLjA1LDQ3LjYyLTEzOS4wOSw0Ny45NS0xNzYuNTQuNzNsNTguNDUtNi4yOS05LjMxLTg2LjQ1LTY1LjI1LDcuMDNjNy40LTMxLjA4LDI2Ljk5LTYyLjIxLDU3LjAyLTg2LjAyLDYwLjA1LTQ3LjYyLDEzOS4wOS00Ny45NSwxNzYuNTQtLjczWiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk2MS42LDEzMS44NGMzNi4yLDQ1LjY1LDE4LjUsMTE5Ljk4LTM5LjU1LDE2Ni4wMS01OC4wNSw0Ni4wNC0xMzQuNDUsNDYuMzUtMTcwLjY2LjdsNTQuNTYtNS44OC05LTgzLjU3LTYxLjE0LDYuNThjNy4xNi0zMC4wNCwyNi4wOS02MC4xMyw1NS4xMi04My4xNSw1OC4wNS00Ni4wNCwxMzQuNDUtNDYuMzUsMTcwLjY2LS43WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk1Ny45OCwxMzQuNzJjMzQuOTYsNDQuMDgsMTcuODYsMTE1Ljg0LTM4LjE4LDE2MC4yOS01Ni4wNSw0NC40NS0xMjkuODIsNDQuNzUtMTY0Ljc3LjY4bDUwLjY4LTUuNDYtOC42OS04MC42OS01Ny4wMiw2LjE0YzYuOTEtMjkuMDEsMjUuMTktNTguMDYsNTMuMjItODAuMjgsNTYuMDQtNDQuNDUsMTI5LjgyLTQ0Ljc1LDE2NC43Ny0uNjhaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTU0LjM2LDEzNy41OWMzMy43MSw0Mi41LDE3LjIyLDExMS43LTM2LjgyLDE1NC41Ni01NC4wNCw0Mi44Ni0xMjUuMTgsNDMuMTUtMTU4Ljg5LjY1bDQ2Ljc5LTUuMDQtOC4zOC03Ny44LTUyLjkxLDUuN2M2LjY2LTI3Ljk3LDI0LjI5LTU1Ljk5LDUxLjMyLTc3LjQyLDU0LjA0LTQyLjg2LDEyNS4xOC00My4xNiwxNTguODktLjY1WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk1MC43MywxNDAuNDZjMzIuNDYsNDAuOTMsMTYuNTksMTA3LjU2LTM1LjQ2LDE0OC44NC01Mi4wNCw0MS4yNy0xMjAuNTQsNDEuNTYtMTUzLC42My0zMi40Ni00MC45My0xNi41OS0xMDcuNTYsMzUuNDYtMTQ4Ljg0LDUyLjA0LTQxLjI3LDEyMC41NC00MS41NiwxNTMtLjYzWiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk0Ny4xMSwxNDMuMzRjMzEuMjEsMzkuMzUsMTUuOTUsMTAzLjQzLTM0LjA5LDE0My4xMS01MC4wNCwzOS42OS0xMTUuOTEsMzkuOTYtMTQ3LjEyLjYtMzEuMjEtMzkuMzUtMTUuOTUtMTAzLjQzLDM0LjA5LTE0My4xMSw1MC4wNC0zOS42OSwxMTUuOTEtMzkuOTYsMTQ3LjEyLS42WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTk0My40OCwxNDYuMjFjMjkuOTYsMzcuNzgsMTUuMzEsOTkuMjktMzIuNzMsMTM3LjM5LTQ4LjA0LDM4LjEtMTExLjI3LDM4LjM2LTE0MS4yMy41OC0yOS45Ni0zNy43OC0xNS4zMS05OS4yOSwzMi43My0xMzcuMzksNDguMDQtMzguMSwxMTEuMjctMzguMzYsMTQxLjIzLS41OFoiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im05MzkuODYsMTQ5LjA5YzI4LjcxLDM2LjIsMTQuNjcsOTUuMTUtMzEuMzYsMTMxLjY2LTQ2LjA0LDM2LjUxLTEwNi42MywzNi43Ni0xMzUuMzUuNTYtMjguNzEtMzYuMi0xNC42Ny05NS4xNSwzMS4zNi0xMzEuNjcsNDYuMDQtMzYuNTEsMTA2LjYzLTM2Ljc2LDEzNS4zNS0uNTZaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTM2LjI0LDE1MS45NmMyNy40NywzNC42MywxNC4wMyw5MS4wMi0zMCwxMjUuOTQtNDQuMDMsMzQuOTItMTAyLDM1LjE2LTEyOS40Ni41My0yNy40Ny0zNC42My0xNC4wMy05MS4wMiwzMC0xMjUuOTQsNDQuMDMtMzQuOTIsMTAyLTM1LjE2LDEyOS40Ni0uNTNaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTMyLjYxLDE1NC44NGMyNi4yMiwzMy4wNiwxMy40LDg2Ljg4LTI4LjY0LDEyMC4yMi00Mi4wMywzMy4zNC05Ny4zNiwzMy41Ni0xMjMuNTguNTEtMjYuMjItMzMuMDYtMTMuNC04Ni44OCwyOC42NC0xMjAuMjIsNDIuMDMtMzMuMzQsOTcuMzYtMzMuNTYsMTIzLjU4LS41MVoiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im05MjguOTksMTU3LjcxYzI0Ljk3LDMxLjQ4LDEyLjc2LDgyLjc0LTI3LjI3LDExNC40OS00MC4wMywzMS43NS05Mi43MiwzMS45Ny0xMTcuNjkuNDgtMjQuOTctMzEuNDgtMTIuNzYtODIuNzQsMjcuMjctMTE0LjQ5LDQwLjAzLTMxLjc1LDkyLjcyLTMxLjk3LDExNy42OS0uNDhaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTI1LjM2LDE2MC41OGMyMy43MiwyOS45MSwxMi4xMiw3OC42LTI1LjkxLDEwOC43Ny0zOC4wMywzMC4xNi04OC4wOSwzMC4zNy0xMTEuODEuNDYtMjMuNzItMjkuOTEtMTIuMTItNzguNiwyNS45MS0xMDguNzcsMzguMDMtMzAuMTYsODguMDktMzAuMzcsMTExLjgxLS40NloiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im05MjEuNzQsMTYzLjQ2YzIyLjQ3LDI4LjMzLDExLjQ4LDc0LjQ3LTI0LjU1LDEwMy4wNC0zNi4wMywyOC41Ny04My40NSwyOC43Ny0xMDUuOTIuNDQtMjIuNDctMjguMzMtMTEuNDgtNzQuNDcsMjQuNTUtMTAzLjA0LDM2LjAzLTI4LjU3LDgzLjQ1LTI4Ljc3LDEwNS45My0uNDRaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTE4LjExLDE2Ni4zM2MyMS4yMiwyNi43NiwxMC44NCw3MC4zMy0yMy4xOCw5Ny4zMi0zNC4wMywyNi45OS03OC44MiwyNy4xNy0xMDAuMDQuNDEtMjEuMjItMjYuNzYtMTAuODQtNzAuMzMsMjMuMTgtOTcuMzIsMzQuMDMtMjYuOTksNzguODItMjcuMTcsMTAwLjA0LS40MVoiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im05MTQuNDksMTY5LjIxYzE5Ljk4LDI1LjE5LDEwLjIxLDY2LjE5LTIxLjgyLDkxLjU5LTMyLjAyLDI1LjQtNzQuMTgsMjUuNTctOTQuMTUuMzktMTkuOTgtMjUuMTktMTAuMjEtNjYuMTksMjEuODItOTEuNTksMzIuMDItMjUuNCw3NC4xOC0yNS41Nyw5NC4xNS0uMzlaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtOTEwLjg3LDE3Mi4wOGMxOC43MywyMy42MSw5LjU3LDYyLjA2LTIwLjQ2LDg1Ljg3LTMwLjAyLDIzLjgxLTY5LjU0LDIzLjk4LTg4LjI3LjM2LTE4LjczLTIzLjYxLTkuNTctNjIuMDYsMjAuNDUtODUuODcsMzAuMDItMjMuODEsNjkuNTQtMjMuOTgsODguMjctLjM2WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTkwNy4yNCwxNzQuOTZjMTcuNDgsMjIuMDQsOC45Myw1Ny45Mi0xOS4wOSw4MC4xNC0yOC4wMiwyMi4yMi02NC45MSwyMi4zOC04Mi4zOS4zNC0xNy40OC0yMi4wNC04LjkzLTU3LjkyLDE5LjA5LTgwLjE0LDI4LjAyLTIyLjIzLDY0LjkxLTIyLjM4LDgyLjM5LS4zNFoiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im05MDMuNjIsMTc3LjgzYzE2LjIzLDIwLjQ2LDguMjksNTMuNzgtMTcuNzMsNzQuNDItMjYuMDIsMjAuNjQtNjAuMjcsMjAuNzgtNzYuNS4zMi0xNi4yMy0yMC40Ni04LjI5LTUzLjc4LDE3LjczLTc0LjQyLDI2LjAyLTIwLjY0LDYwLjI3LTIwLjc4LDc2LjUtLjMxWiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTg5OS45OSwxODAuN2MxNC45OCwxOC44OSw3LjY2LDQ5LjY1LTE2LjM2LDY4LjctMjQuMDIsMTkuMDUtNTUuNjMsMTkuMTgtNzAuNjIuMjktMTQuOTgtMTguODktNy42Ni00OS42NCwxNi4zNi02OC42OSwyNC4wMi0xOS4wNSw1NS42My0xOS4xOCw3MC42Mi0uMjlaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtODk2LjM3LDE4My41OGMxMy43MywxNy4zMiw3LjAyLDQ1LjUxLTE1LDYyLjk3LTIyLjAyLDE3LjQ2LTUxLDE3LjU4LTY0LjczLjI3LTEzLjczLTE3LjMyLTcuMDItNDUuNTEsMTUtNjIuOTcsMjIuMDItMTcuNDYsNTEtMTcuNTgsNjQuNzMtLjI3WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTg5Mi43NSwxODYuNDVjMTIuNDgsMTUuNzQsNi4zOCw0MS4zNy0xMy42NCw1Ny4yNS0yMC4wMiwxNS44OC00Ni4zNiwxNS45OC01OC44NS4yNC0xMi40OC0xNS43NC02LjM4LTQxLjM3LDEzLjY0LTU3LjI1LDIwLjAyLTE1Ljg3LDQ2LjM2LTE1Ljk4LDU4Ljg1LS4yNFoiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im04ODkuMTIsMTg5LjMzYzExLjI0LDE0LjE3LDUuNzQsMzcuMjMtMTIuMjcsNTEuNTItMTguMDEsMTQuMjktNDEuNzMsMTQuMzgtNTIuOTYuMjItMTEuMjQtMTQuMTctNS43NC0zNy4yMywxMi4yNy01MS41MiwxOC4wMS0xNC4yOSw0MS43My0xNC4zOSw1Mi45Ni0uMjJaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtODg1LjUsMTkyLjJjOS45OSwxMi41OSw1LjEsMzMuMS0xMC45MSw0NS44LTE2LjAxLDEyLjctMzcuMDksMTIuNzktNDcuMDguMTktOS45OS0xMi41OS01LjEtMzMuMSwxMC45MS00NS44LDE2LjAxLTEyLjcsMzcuMDktMTIuNzksNDcuMDgtLjE5WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTg4MS44NywxOTUuMDhjOC43NCwxMS4wMiw0LjQ2LDI4Ljk2LTkuNTUsNDAuMDctMTQuMDEsMTEuMTEtMzIuNDUsMTEuMTktNDEuMTkuMTctOC43NC0xMS4wMi00LjQ2LTI4Ljk2LDkuNTUtNDAuMDcsMTQuMDEtMTEuMTEsMzIuNDUtMTEuMTksNDEuMTktLjE3WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTg3OC4yNSwxOTcuOTVjNy40OSw5LjQ0LDMuODMsMjQuODItOC4xOCwzNC4zNS0xMi4wMSw5LjUyLTI3LjgyLDkuNTktMzUuMzEuMTUtNy40OS05LjQ0LTMuODMtMjQuODIsOC4xOC0zNC4zNSwxMi4wMS05LjUyLDI3LjgyLTkuNTksMzUuMzEtLjE1WiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTg3NC42MiwyMDAuODNjNi4yNCw3Ljg3LDMuMTksMjAuNjktNi44MiwyOC42Mi0xMC4wMSw3Ljk0LTIzLjE4LDcuOTktMjkuNDIuMTItNi4yNC03Ljg3LTMuMTktMjAuNjksNi44Mi0yOC42MiwxMC4wMS03Ljk0LDIzLjE4LTcuOTksMjkuNDItLjEyWiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTg3MSwyMDMuN2M0Ljk5LDYuMywyLjU1LDE2LjU1LTUuNDUsMjIuOS04LjAxLDYuMzUtMTguNTQsNi4zOS0yMy41NC4xLTQuOTktNi4zLTIuNTUtMTYuNTUsNS40NS0yMi45LDguMDEtNi4zNSwxOC41NS02LjM5LDIzLjU0LS4xWiIvPgogICAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTg2Ny4zOCwyMDYuNTdjMy43NSw0LjcyLDEuOTEsMTIuNDEtNC4wOSwxNy4xNy02LDQuNzYtMTMuOTEsNC44LTE3LjY1LjA3LTMuNzUtNC43Mi0xLjkxLTEyLjQxLDQuMDktMTcuMTcsNi00Ljc2LDEzLjkxLTQuOCwxNy42NS0uMDdaIi8+CiAgICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTEzIiBkPSJtODYzLjc1LDIwOS40NWMyLjUsMy4xNSwxLjI4LDguMjctMi43MywxMS40NS00LDMuMTgtOS4yNywzLjItMTEuNzcuMDUtMi41LTMuMTUtMS4yOC04LjI3LDIuNzMtMTEuNDUsNC0zLjE4LDkuMjctMy4yLDExLjc3LS4wNVoiLz4KICAgICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTMiIGQ9Im04NjAuMTMsMjEyLjMyYzEuMjUsMS41Ny42NCw0LjE0LTEuMzYsNS43Mi0yLDEuNTktNC42NCwxLjYtNS44OC4wMi0xLjI1LTEuNTctLjY0LTQuMTQsMS4zNi01LjcyLDItMS41OSw0LjY0LTEuNiw1Ljg4LS4wMloiLz4KICAgICAgICA8L2c+CiAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xNCIgZD0ibTI4My41OCw3MTQuNzdzNzYuNjgtNjkuMTUsMjEyLjQ4LTYxLjg5YzAsMC0xNTYuNDktODMuMzQtMjEyLjQ4LDYxLjg5WiIvPgogICAgICAgIDxlbGxpcHNlIGNsYXNzPSJjbHMtMTIiIGN4PSI3NDAuMjIiIGN5PSI2MzkuNjQiIHJ4PSIxNDUuNTUiIHJ5PSIxNDEuOTciIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yNy40NCAzMy4yKSByb3RhdGUoLTIuNTIpIi8+CiAgICAgICAgPHBhdGggY2xhc3M9ImNscy05IiBkPSJtODY1LjE3LDY0MC43NmMyLjc5LDYzLjUyLTQ3LjczLDExNy4zMy0xMTIuODUsMTIwLjE5LTY1LjEyLDIuODYtMTIwLjE3LTQ2LjMxLTEyMi45Ni0xMDkuODItMi43OS02My41Miw0Ny43My0xMTcuMzMsMTEyLjg1LTEyMC4xOSw2NS4xMi0yLjg2LDEyMC4xNyw0Ni4zMSwxMjIuOTYsMTA5LjgyWiIvPgogICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTQiIGQ9Im04MTUuOTEsNjM4Ljg2YzEuOTUsNDQuMzItMjcuMjgsODEuNTktNjUuMjksODMuMjctMzgsMS42Ny03MC4zOS0zMi45LTcyLjM0LTc3LjIyLTEuOTUtNDQuMzIsMjcuMjgtODEuNiw2NS4yOS04My4yNywzOC4wMS0xLjY3LDcwLjM5LDMyLjksNzIuMzQsNzcuMjJaIi8+CiAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xMyIgZD0ibTQ0MC4wNSw3MzUuNjlzMjQuOTksNDYuMjUsOTkuNTMsMjkuNTRjMCwwLTI4LjkyLDMwLjU3LTYyLjIxLDE4LjE3LTI2LjI0LTkuNzctMzcuMzMtNDcuNzEtMzcuMzMtNDcuNzFaIi8+CiAgICAgICAgPHBhdGggY2xhc3M9ImNscy0yIiBkPSJtMjMzLjE4LDQ3Mi4wN3M0OC4xOS0xMjEuODcsMjYwLjUxLTE3NS4wOWMyMjguMi01Ny4yLDM0MS40Niw3Ni43MywzNDEuNDYsNzYuNzMsMCwwLTQ3LjM1LDU1LjQzLTE5Ni4yMiw5OC43LTE0OC44Nyw0My4yNy0yMzEuNzgtNC44OC0zMTMuODktMTQuMDUtNjYuNzEtNy40NS05MS44NywxMy43MS05MS44NywxMy43MVoiLz4KICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTE0IiBkPSJtMjgwLjY0LDQwNy42NXMzOC44Niw0LjUsODUuODYtMTUuODVjNDcuMDEtMjAuMzUsNDQuMjMtNjcuNjEsNDQuMjMtNjcuNjEsMCwwLTY5Ljc1LDI1LjY0LTEzMC4xLDgzLjQ2WiIvPgogICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTUiIGQ9Im0zNjUuNDksODI1LjAxczU5LjY4LDcyLjM0LDIyMy4zMSw1MC42MmMxMjEuMTktMTYuMDksMTY3Ljc2LTk2LjkyLDE2Ny43Ni05Ni45MiwwLDAtNjguOTgsNjMuNzktMjEwLjg5LDc0Ljk2LTk0LjY2LDcuNDUtMTgwLjE5LTI4LjY2LTE4MC4xOS0yOC42NloiLz4KICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTgiIGQ9Im04MDMuNTgsNzY2Ljc5bC0yMy41NSwzOS4zOWMtOTkuNDMsODMuOC0yNDUuOTQsMTE0Ljg1LTM3Mi4xLDczLjQ0LTExNy4zOS0zOC41Ny0xODkuMDItMTM5LjEyLTIxNC4zNi0yMzMuODEsNy44OSwxNy45MywxMjEuNDQsMjY3LjQyLDM3Ny40LDIzMS44MiwxMTAuOTUtMTUuMzYsMTg0LjUtNjEuOTUsMjMyLjYtMTEwLjg1WiIvPgogICAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMTQiIGQ9Im0yMzcuMTMsMzg1LjY2czI1LjY0LTYxLjY4LDc0LjUtNjYuNjhjMCwwLTE4LjUxLDQ3LjM0LTc0LjUsNjYuNjhaIi8+CiAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xNyIgZD0ibTIzOS44MiwyNzYuNjZsLTU2LjY0LDY1LjY5LTEzLjE5LDM3Ljg1LS4wNC4yMi0uNzYsMi4xM2MtMTMuNDMtNDUuOTYtMjQuNzMtOTguNzktMzMuMzEtMTQ0LjQ3LTcuNzEtNDIuMzQtMTMuMjctNzguNDEtMTYuMDEtOTcuMjEtMS4zNC04LjkzLTEuOTgtMTQuMDQtMS45OC0xNC4wNCwzMS4wMy0zLjk4LDg3LjA3LDkzLjkyLDkwLjU3LDEwMC4xLjE1LjE3LjE4LjI2LjE4LjI2LDE4LjEsMjYuOCwzMS4xOCw0OS40NiwzMS4xOCw0OS40NloiLz4KICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTYiIGQ9Im05MTMuNjIsOTRjMSwzLjQyLDEuODMsNi45OSwyLjQyLDEwLjg0LDUuMDUsMjcuNDQsMi4wNyw2NC0zLjkyLDEwMC4wNi0xMS40MSw2OC4yNS0zMy41OSwxMzQuNzktMzMuNTksMTM0Ljc5LTMuODYtMTEuMDUtOC4wOS0yMS4xNS0xMi42Mi0yOS43OGwtNTUuNDgtNzAuNjRzNy42LTEzLjg3LDE5LjAyLTMyLjc3YzAsMCwuMjEtLjM4LjYyLTEuMTMsNS42Ny0xMS40LDUyLjY3LTEwMy4xOSw4My41NC0xMTEuMzZaIi8+CiAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xOSIgZD0ibTE0My40MSw1NjguMDFzMzQuNTMtMjA0LjMyLDk2LjQxLTI5MS4zNWwtNTYuNjQsNjUuNjlzLTQyLjg4LDEwNS4wNi0zOS43NywyMjUuNjZaIi8+CiAgICAgICAgPHBhdGggY2xhc3M9ImNscy0xOCIgZD0ibTgxMC40NCwyMzkuMjdsNTcuMDYsMTAzLjY0czM2LjcyLDExOS4xMSw0OS43OSwxOTAuMjhjMCwwLTQuODUtMTE5LjktNTEuMzYtMjIzLjI5LDAsMC00NS44MS02Mi45NC01NS40OC03MC42NFoiLz4KICAgICAgPC9nPgogICAgICA8Zz4KICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTIyIiBkPSJtODA1LjQsODg0LjU0cy0yLjI5LTUyLjA1LDQ5LjcxLTEwOS4yOWM0Mi44NC00Ny4xNSw5MS40NC00OS44NSwxMDYuNDgtMzIuNDIsMTUuMDUsMTcuNDQtMTUuMDMsMTQ0LjI4LTcyLjM1LDE2OC42MS00Mi41MSwxOC4wNC04My44NS0yNi45MS04My44NS0yNi45MVoiLz4KICAgICAgICA8cGF0aCBjbGFzcz0iY2xzLTIwIiBkPSJtOTI5Ljg5LDg2Ni40MnMzLjE5LTM3Ljc4LTExNC4zMi01NS4zN2MtOTYuODEtMTQuNDgtMTIyLjU2LDU4LjA4LTEwNS4zNiw5My45OCwxNS4zLDMxLjkzLDU0Ljk2LDEwMS43NSwxNDYuNjIsNzQuOTgsNjcuOTktMTkuODUsNzMuMDUtMTEzLjU5LDczLjA1LTExMy41OVoiLz4KICAgICAgPC9nPgogICAgPC9nPgogIDwvZz4KPC9zdmc+">`;
+
+/* ---------- Reglas de negocio (BLOQUE 0) ---------- */
+const P = { start: 100, threshold: 60, dedupMin: 5, videoDelayMin: 30, windowH: 12, closeHour: 19 };
+const CAT = {
+  obstructedCamera:  { label: 'Cámara obstruida', pts: 10 },
+  severeSpeeding:    { label: 'Exceso severo de velocidad', pts: 10, pending: true },
+  maxSpeed:          { label: 'Velocidad máxima', pts: 5, pending: true },
+  passenger:         { label: 'Acompañante o pasajero', pts: 5, pending: true },
+  mobileUsage:       { label: 'Uso de dispositivo móvil', pts: 2 },
+  genericDistraction:{ label: 'Distracción', pts: 2 },
+  braking:           { label: 'Frenado brusco', pts: 5 },
+};
+
+/* ---------- Escenarios (datos de ejemplo) ---------- */
+const SCENARIOS = [
+  { id: 'alertas', name: 'Luis Ramírez · día con alertas', date: '2026-10-27',
+    desc: '5 alertas hoy, una deduplicada. El video de la última todavía se procesa (menos de 30 min).',
+    driver: { name: 'Luis Ángel Ramírez', first: 'Luis', samsaraId: '281937', tmsId: 'OP-0412', phone: '+52 55 4189 4417', vehicle: 'T-214 · Kenworth T680' },
+    prior: [ { id: 'evt_7P8H2A', type: 'braking', date: '2026-10-26', local: '17:22' } ],
+    events: [
+      { id: 'evt_7Q2K9X', type: 'mobileUsage', local: '09:14' },
+      { id: 'evt_7Q2KB4', type: 'mobileUsage', local: '09:17' },
+      { id: 'evt_7Q4M1C', type: 'braking', local: '13:41' },
+      { id: 'evt_7Q5R8D', type: 'obstructedCamera', local: '16:05' },
+      { id: 'evt_7Q6T3F', type: 'genericDistraction', local: '18:52' } ],
+    quick: ['¿Me mandas el video del frenado de las 13:41?', 'Quiero ver la de las 18:52', 'Lo de la cámara no fui yo, manejaba mi compañero', '¿Por qué tengo 76 puntos?', 'Quiero ver la de exceso de velocidad', 'Gracias, enterado'] },
+  { id: 'sin', name: 'Mariana Torres · día sin alertas', date: '2026-10-27',
+    desc: 'Sin alertas hoy: ADA le escribe igual con refuerzo positivo y su saldo (propuesta a confirmar).',
+    driver: { name: 'Mariana Torres Gil', first: 'Mariana', samsaraId: '281455', tmsId: 'OP-0377', phone: '+52 55 6620 1893', vehicle: 'T-187 · Freightliner Cascadia' },
+    prior: [ { id: 'evt_7P3C1D', type: 'mobileUsage', date: '2026-10-26', local: '08:47' },
+             { id: 'evt_7P4E6G', type: 'genericDistraction', date: '2026-10-26', local: '12:15' },
+             { id: 'evt_7P5J0K', type: 'braking', date: '2026-10-26', local: '18:03' } ],
+    events: [],
+    quick: ['¿Cómo se calcula mi score?', '¿Qué alertas tuve ayer?', 'Mándame el video del frenado de ayer', 'Gracias, igualmente'] },
+  { id: 'umbral', name: 'Jorge Hernández · cruza el umbral', date: '2026-10-27',
+    desc: 'El saldo baja de 60: ADA deja la marca de capacitación para el dashboard y no se lo dice al conductor.',
+    driver: { name: 'Jorge Hernández Ochoa', first: 'Jorge', samsaraId: '280611', tmsId: 'OP-0158', phone: '+52 33 1847 2260', vehicle: 'T-092 · International LT' },
+    prior: [ { id: 'evt_7N1A4B', type: 'obstructedCamera', date: '2026-10-26', local: '07:58' },
+             { id: 'evt_7N2C8D', type: 'genericDistraction', date: '2026-10-26', local: '11:05' },
+             { id: 'evt_7N3E2F', type: 'braking', date: '2026-10-26', local: '14:30' },
+             { id: 'evt_7N4G6H', type: 'mobileUsage', date: '2026-10-26', local: '16:12' },
+             { id: 'evt_7N4G9J', type: 'mobileUsage', date: '2026-10-26', local: '16:15' },
+             { id: 'evt_7N5K3L', type: 'severeSpeeding', date: '2026-10-26', local: '18:40' } ],
+    events: [
+      { id: 'evt_7Q1B7M', type: 'braking', local: '08:20' },
+      { id: 'evt_7Q3D5N', type: 'obstructedCamera', local: '11:02' },
+      { id: 'evt_7Q5F1P', type: 'maxSpeed', local: '15:40' } ],
+    quick: ['¿Qué fue lo de velocidad de las 15:40?', 'No estoy de acuerdo con lo de la cámara, la limpié en cuanto pude', '¿Me van a correr por esto?', '¿Cómo subo mi score?', 'Gracias'] },
+  { id: 'lunes', name: 'Raúl Domínguez · lunes con eventos del domingo', date: '2026-10-26',
+    desc: 'Eventos del domingo después de las 19:00: se muestran aparte, como de la semana pasada, separados del saldo nuevo.',
+    driver: { name: 'Raúl Domínguez Paz', first: 'Raúl', samsaraId: '281102', tmsId: 'OP-0263', phone: '+52 81 2290 7715', vehicle: 'T-145 · Kenworth T880' },
+    lastWeek: { balanceBefore: 88, events: [
+      { id: 'evt_7M9R2S', type: 'braking', date: '2026-10-25', local: '21:12' },
+      { id: 'evt_7M9W5T', type: 'mobileUsage', date: '2026-10-25', local: '22:40' } ] },
+    prior: [],
+    events: [ { id: 'evt_7P0X3V', type: 'mobileUsage', local: '11:20' } ],
+    quick: ['¿Qué pasó el domingo a las 21:12?', '¿Por qué tengo 98 si apenas empezó la semana?', 'Mándame el video de hoy', 'Gracias'] },
+  { id: 'sintel', name: 'Pedro Salinas · sin teléfono en el TMS', date: '2026-10-27',
+    desc: 'El TMS no tiene teléfono: ADA no puede escribirle, lo registra como no contactable y cierra.',
+    driver: { name: 'Pedro Salinas Vega', first: 'Pedro', samsaraId: '280987', tmsId: 'OP-0331', phone: null, vehicle: 'T-201 · Volvo VNL' },
+    prior: [],
+    events: [ { id: 'evt_7Q2W4X', type: 'braking', local: '10:05' }, { id: 'evt_7Q4Y8Z', type: 'obstructedCamera', local: '12:30' } ],
+    quick: [] },
+];
+
+/* ---------- Fechas (America/Mexico_City = UTC-6 todo el año) ---------- */
+const DAYS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const pad = n => String(n).padStart(2, '0');
+const toMin = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+const hm = m => { m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m / 60)) + ':' + pad(m % 60); };
+const dObj = iso => { const [y, m, d] = iso.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const addDays = (iso, n) => { const d = dObj(iso); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const dayIdx = iso => Math.round(dObj(iso).getTime() / 86400000);
+const longDate = iso => { const d = dObj(iso); return DAYS[d.getUTCDay()] + ' ' + d.getUTCDate() + ' de ' + MONTHS[d.getUTCMonth()]; };
+const shortDate = iso => { const d = dObj(iso); return DAYS[d.getUTCDay()].slice(0, 3) + ' ' + d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()].slice(0, 3); };
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const utcISO = (iso, local, plus = 0) => { const [y, m, d] = iso.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d, 0, toMin(local) + 360 + plus)).toISOString().replace('.000', ''); };
+const weekStart = iso => { const wd = dObj(iso).getUTCDay(); return addDays(iso, -((wd + 6) % 7)); };
+const maskPhone = p => p ? p.replace(/(\+\d+ \d+) \d+ (\d+)/, '$1 •••• $2') : 'Sin teléfono';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const $ = id => document.getElementById(id);
+
+/* ---------- Score: saldo semanal, dedup 5 min, piso 0 ---------- */
+function score(list, startBal, defaultDate) {
+  let bal = startBal; const last = {};
+  const evs = list.map(e => ({ ...e, date: e.date || defaultDate }))
+    .sort((a, b) => (dayIdx(a.date) * 1440 + toMin(a.local)) - (dayIdx(b.date) * 1440 + toMin(b.local)));
+  for (const e of evs) {
+    const abs = dayIdx(e.date) * 1440 + toMin(e.local);
+    if (last[e.type] != null && abs - last[e.type] < P.dedupMin) { e.dedup = true; e.pts = 0; }
+    else { e.dedup = false; e.pts = CAT[e.type].pts; last[e.type] = abs; }
+    const before = bal; bal = Math.max(0, bal - e.pts); e.applied = before - bal;
+    e.utc = utcISO(e.date, e.local);
+  }
+  return { events: evs, balance: bal };
+}
+
+/* ---------- Estado ---------- */
+const S = { gen: 0, sc: null, started: false, simDate: '', simMin: 0, status: 'idle', busy: false, steps: 0,
+  chats: { conductor: [], supervisor: [] }, unread: { conductor: 0, supervisor: 0 }, active: 'conductor', typing: null,
+  transcript: [], pending: new Set(), retried: new Set(), today: null, prior: null, lastWeek: null };
+let sample = null, engineState = 'connecting';
+
+const allEvents = () => [...(S.lastWeek ? S.lastWeek.events : []), ...S.prior.events, ...S.today.events];
+const findEvent = id => allEvents().find(e => e.id === id);
+const nowAbs = () => dayIdx(S.simDate) * 1440 + S.simMin;
+const videoReady = e => nowAbs() - (dayIdx(e.date) * 1440 + toMin(e.local)) >= P.videoDelayMin;
+const videoFrom = e => hm(toMin(e.local) + P.videoDelayMin);
+const now = () => hm(S.simMin);
+const simLabel = () => { const x = Math.floor(S.simMin / 1440); return hm(S.simMin) + ' del ' + longDate(addDays(S.simDate, x)); };
+function tick(m) { S.simMin += m; updateClock(); }
+function updateClock() { const x = Math.floor(S.simMin / 1440); $('clock').textContent = hm(S.simMin) + ' CDMX · ' + shortDate(addDays(S.simDate || S.sc.date, x)); }
+
+function setEngine(state) {
+  engineState = state; const el = $('engine');
+  el.textContent = state === 'ai' ? 'IA activa' : state === 'connecting' ? 'Conectando IA…' : 'Guion local';
+  el.classList.toggle('off', state !== 'ai');
+  el.title = state === 'ai' ? 'ADA responde con IA siguiendo las reglas del flujo' : 'La IA no está disponible en esta vista: ADA responde con reglas por palabras clave';
+}
+
+/* ---------- Tarjeta del conductor ---------- */
+function setDriver(flash) {
+  const d = S.sc.driver;
+  const t = S.today, bal = t ? t.balance : null, below = bal != null && bal < P.threshold;
+  const statusTxt = { idle: 'Antes del cierre', running: 'Cierre en curso', waiting: 'Esperando respuesta', resolved: 'Resuelto · ventana abierta', escalated: 'Escalado al supervisor', closed: 'Cerrado', nocontact: 'No contactable' }[S.status];
+  const kv = (k, v, id) => `<div class="kv"><div class="k">${k}</div><div class="v" ${id ? 'data-k="' + id + '"' : ''}>${v}</div></div>`;
+  const prev = {}; $('driver').querySelectorAll('.v[data-k]').forEach(n => prev[n.dataset.k] = n.innerHTML);
+  let tags = '';
+  if (t) {
+    const g = groupByType(t.events);
+    tags = g.map(([k, l]) => `<span class="tag brand">${k} ×${l.length}</span>`).join('') || '<span class="tag ok">sin alertas hoy</span>';
+    if (t.events.some(e => e.dedup)) tags += '<span class="tag">deduplicado</span>';
+    tags += below ? '<span class="tag err">marca de capacitación</span>' : '<span class="tag ok">sobre umbral</span>';
+    if (!d.phone) tags += '<span class="tag err">no contactable</span>';
+    if (S.status === 'escalated') tags += '<span class="tag warn">escalado</span>';
+    if (S.pending.size) tags += '<span class="tag warn">video pendiente</span>';
+  }
+  $('driver').innerHTML =
+    kv('Conductor', esc(d.name)) + kv('driver.id Samsara', esc(d.samsaraId)) + kv('Vehículo', esc(d.vehicle)) + kv('Teléfono (TMS)', esc(maskPhone(d.phone))) +
+    kv('Score semanal', bal == null ? '—' : `<span class="prio ${below ? 'low' : 'p1'}">${bal} / 100</span>`, 'score') +
+    kv('Alertas hoy', t ? (t.events.length ? t.events.length + ' · ' + t.events.filter(e => !e.dedup).length + ' puntuadas' : 'Ninguna') : '—', 'alerts') +
+    kv('Puntos restados hoy', t ? '−' + t.events.reduce((s, e) => s + e.applied, 0) : '—', 'lost') +
+    kv('Estado', statusTxt, 'status') +
+    (bal == null ? '' : `<div class="meter${below ? ' low' : ''}" role="img" aria-label="Saldo ${bal} de 100; umbral de capacitación ${P.threshold}"><span class="fill" style="width:${bal}%"></span><span class="tick" style="left:${P.threshold}%"><i>Umbral ${P.threshold}</i></span></div>`) +
+    `<div class="tags">${tags}</div>`;
+  $('drvHint').textContent = 'Semana del ' + shortDate(weekStart(S.sc.date)) + ' · cierre del ' + shortDate(S.sc.date);
+  if (flash) $('driver').querySelectorAll('.v[data-k]').forEach(n => { if (prev[n.dataset.k] != null && prev[n.dataset.k] !== n.innerHTML) { n.classList.add('flash'); setTimeout(() => n.classList.remove('flash'), 700); } });
+}
+function setStatus(s) { S.status = s; setDriver(true); renderChat(); }
+
+/* ---------- Registro ---------- */
+const KIND = { trigger: 'Disparador', ok: 'Consulta', action: 'Acción', info: 'Regla', wait: 'En espera', warn: 'Alerta', end: 'Cierre', ai: 'IA', in: 'Entrada' };
+function log(kind, title, d, code, chipOverride) {
+  const ol = $('log'); ol.querySelector('.empty')?.remove(); ol.querySelectorAll('.live').forEach(n => n.classList.remove('live'));
+  S.steps++;
+  const cls = kind === 'ai' ? 'info' : kind === 'in' ? 'trigger' : kind;
+  const li = document.createElement('li'); li.className = 'step ' + cls + (kind === 'wait' ? ' live' : '');
+  const icon = { ok: '✓', warn: '!', end: '■' }[cls] || S.steps;
+  li.innerHTML = `<span class="t">${now()}</span><span class="dot">${icon}</span><div class="body"><div class="row1"><span class="title"></span><span class="chip">${chipOverride || KIND[kind]}</span></div><div class="d"></div>${code ? '<pre></pre>' : ''}</div><span class="rail" aria-hidden="true"></span>`;
+  li.querySelector('.title').textContent = title; li.querySelector('.d').textContent = d || '';
+  if (code) li.querySelector('pre').textContent = typeof code === 'string' ? code : JSON.stringify(code, null, 2);
+  ol.appendChild(li); ol.scrollTop = ol.scrollHeight; $('logHint').textContent = `${S.steps} pasos`; return li;
+}
+function summary(text) { const ol = $('log'); const s = document.createElement('li'); s.className = 'summary'; s.textContent = text; ol.appendChild(s); ol.scrollTop = ol.scrollHeight; }
+function emptyLog() {
+  $('log').innerHTML = `<li class="empty"><div class="caps">Qué hace ADA en el cierre diario</div><ol>
+    <li><b>Dispara</b> todos los días a las 19:00 (hora del centro de México) para cada conductor con actividad.</li>
+    <li><b>Consulta</b> su saldo semanal (arranca en 100 cada lunes) y las alertas del día agrupadas por tipo.</li>
+    <li><b>Escribe</b> por WhatsApp con su score y sus alertas, o un refuerzo positivo si no tuvo ninguna.</li>
+    <li><b>Conversa:</b> entrega fecha, hora y video de la alerta que pida. Si la cuestiona, dice que no manejaba o pide algo fuera de alcance, <b>escala al supervisor</b>.</li>
+    <li><b>Registra</b> el agregado del día y la marca de capacitación si el saldo quedó debajo de 60.</li></ol></li>`;
+  $('logHint').textContent = '0 pasos';
+}
+
+/* ---------- Chat ---------- */
+const CONTACTS = { conductor: { tab: 'Conductor' }, supervisor: { tab: 'Supervisor', name: 'Supervisor de seguridad', ini: 'SU', sub: 'Destino PENDIENTE de definir' } };
+const initials = n => n.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+function renderTabs() {
+  $('tabs').innerHTML = ['conductor', 'supervisor'].map(c => `<button class="tab" role="tab" type="button" aria-selected="${S.active === c}" data-c="${c}">${CONTACTS[c].tab}${S.unread[c] ? `<span class="n">${S.unread[c]}</span>` : ''}</button>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => setActive(b.dataset.c));
+}
+function renderChat() {
+  const c = S.active, d = S.sc.driver;
+  const nm = c === 'conductor' ? d.name : CONTACTS.supervisor.name;
+  const sub = c === 'conductor' ? (d.phone || 'Sin teléfono en el TMS') : CONTACTS.supervisor.sub;
+  $('chatHead').innerHTML = `<span class="av">${c === 'conductor' ? initials(d.name) : 'SU'}</span><div><div class="nm"></div><div class="sub"></div></div><span class="wa">WhatsApp</span>`;
+  $('chatHead').querySelector('.nm').textContent = nm; $('chatHead').querySelector('.sub').textContent = sub;
+  const box = $('msgs'); box.innerHTML = '';
+  const list = S.chats[c];
+  if (!list.length) { const e = document.createElement('div'); e.className = 'sys'; e.textContent = c === 'conductor' ? (S.started ? 'Sin mensajes en esta conversación.' : 'La conversación aparece cuando corre el cierre de las 19:00.') : 'ADA le escribe al supervisor solo cuando escala.'; box.appendChild(e); }
+  list.forEach(m => box.appendChild(bubble(m)));
+  if (S.typing === c) { const t = document.createElement('div'); t.className = 'typing'; t.innerHTML = `${ADA}<span>ADA está escribiendo</span><span class="dots"><i></i><i></i><i></i></span>`; box.appendChild(t); }
+  box.scrollTop = box.scrollHeight;
+  renderQuick(); renderTabs();
+}
+function fmt(text) {
+  let h = esc(text).replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>');
+  return h.replace(/\[\[VIDEO:([A-Za-z0-9_]+)\]\]/g, (m, id) => {
+    const e = findEvent(id); if (!e) return '';
+    if (!videoReady(e)) { S.pending.add(id); return '<span class="vpend">video en proceso</span>'; }
+    return `<span class="vid"><span class="play" aria-hidden="true"></span><span><b>${esc(CAT[e.type].label)} · ${e.local}</b><small>Cámara frontal y de cabina · ${shortDate(e.date)} · vista simulada</small></span></span>`;
+  });
+}
+function bubble(m) {
+  const d = document.createElement('div');
+  if (m.dir === 'sys') { d.className = 'sys'; d.textContent = m.text; return d; }
+  d.className = 'msg ' + m.dir;
+  if (m.dir === 'out') { const f = document.createElement('div'); f.className = 'from'; f.innerHTML = ADA + '<span>ADA · Seguridad vial</span>'; d.appendChild(f); }
+  const body = document.createElement('span'); if (m.dir === 'out') body.innerHTML = m.html; else body.textContent = m.text; d.appendChild(body);
+  const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = m.time + (m.dir === 'out' ? ' ✓✓' : ''); d.appendChild(meta); return d;
+}
+function setActive(c) { S.active = c; S.unread[c] = 0; renderChat(); }
+function push(c, m) { S.chats[c].push(m); if (c !== S.active) S.unread[c]++; renderChat(); }
+async function say(c, text) {
+  const g = S.gen;
+  S.typing = c; renderChat(); await sleep(Math.min(1400, 450 + text.length * 4)); if (g !== S.gen) throw 'stale';
+  S.typing = null; push(c, { dir: 'out', text, html: fmt(text), time: now() });
+  if (c === 'conductor') S.transcript.push({ who: 'ADA', text });
+  await sleep(200);
+}
+function sys(c, text) { push(c, { dir: 'sys', text }); }
+const canReply = () => S.active === 'conductor' && (S.status === 'waiting' || S.status === 'resolved') && !S.busy;
+function renderQuick() {
+  const qr = $('qr'); qr.innerHTML = ''; const can = canReply();
+  const show = S.active === 'conductor' && (S.status === 'waiting' || S.status === 'resolved');
+  if (show) {
+    S.sc.quick.forEach(o => { const b = document.createElement('button'); b.type = 'button'; b.textContent = o; b.disabled = !can; b.onclick = () => send(o); qr.appendChild(b); });
+    const g = document.createElement('button'); g.type = 'button'; g.className = 'ghost'; g.textContent = 'Simular que no responde (12 h)'; g.disabled = !can; g.onclick = closeWindow; qr.appendChild(g);
+  }
+  qr.hidden = !show;
+  $('text').disabled = !can; $('sendBtn').disabled = !can;
+  const as = $('asWho');
+  if (show) { as.innerHTML = 'Respondes como <b></b>'; as.querySelector('b').textContent = S.sc.driver.name; }
+  else as.textContent = S.active === 'supervisor' ? 'Vista del supervisor: solo lectura en esta simulación.' : S.status === 'escalated' ? 'La conversación pasó al supervisor: ADA ya no responde.' : S.status === 'closed' ? 'La ventana de conversación de 12 h se cerró.' : S.status === 'nocontact' ? 'Sin canal de contacto con este conductor.' : 'Esta conversación no espera respuesta ahora.';
+  $('advance').disabled = S.busy || !S.started;
+}
+
+/* ---------- Mensaje de apertura (plantilla) ---------- */
+function groupByType(evs) { const g = new Map(); for (const e of evs) { if (!g.has(e.type)) g.set(e.type, []); g.get(e.type).push(e); } return [...g.entries()]; }
+const joinTimes = a => a.length === 1 ? a[0] : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1];
+function alertLines(evs) {
+  return groupByType(evs).map(([type, list]) => {
+    const pts = list.reduce((s, e) => s + e.applied, 0), n = list.length;
+    const dd = list.some(e => e.dedup) ? ', contaron como una por ser la misma conducta' : '';
+    return `• ${CAT[type].label}: ${n} ${n === 1 ? 'alerta' : 'alertas'} (${joinTimes(list.map(e => e.local))}${dd}) · −${pts} pts`;
+  }).join('\n');
+}
+function buildOpening() {
+  const d = S.sc.driver, t = S.today;
+  let msg = `Hola, ${d.first}. Soy ADA, el asistente de seguridad vial de tu flota. Te comparto tu cierre de hoy, ${longDate(S.sc.date)}.`;
+  if (S.lastWeek) msg += `\n\n*De la semana pasada* (domingo ${dObj(addDays(S.sc.date, -1)).getUTCDate()}, después de las 19:00):\n${alertLines(S.lastWeek.events)}\nCon esas alertas tu semana pasada cerró en ${S.lastWeek.balance} puntos. No afectan tu score nuevo.\n\nEsta semana arrancaste con 100 puntos.`;
+  if (!t.events.length) return msg + `\n\nHoy no registraste ninguna alerta de seguridad. Tu score de la semana se mantiene en *${t.balance} de 100 puntos*.\n\nGracias por manejar con cuidado. Que descanses.`;
+  const lost = t.events.reduce((s, e) => s + e.applied, 0);
+  return msg + `\n\nTu score de la semana: *${t.balance} de 100 puntos*.\n\nAlertas de hoy (hasta las 19:00):\n${alertLines(t.events)}\n\nHoy se restaron ${lost} puntos. Si quieres el detalle o el video de alguna, dime cuál y te lo comparto.`;
+}
+
+/* ---------- Reinicio y arranque ---------- */
+function reset() {
+  S.gen++; S.sc = SCENARIOS[+$('preset').value]; S.started = false; S.busy = false; S.steps = 0; S.typing = null;
+  S.simDate = S.sc.date; S.simMin = P.closeHour * 60; S.status = 'idle';
+  S.chats = { conductor: [], supervisor: [] }; S.unread = { conductor: 0, supervisor: 0 }; S.active = 'conductor';
+  S.transcript = []; S.pending = new Set(); S.retried = new Set(); S.today = null; S.prior = null; S.lastWeek = null;
+  $('presetDesc').textContent = S.sc.desc; $('go').disabled = false;
+  emptyLog(); updateClock(); setDriver(false); renderChat();
+}
+async function run(fn) { S.busy = true; renderQuick(); const g = S.gen; try { await fn(g); } catch (e) { if (e !== 'stale') console.error(e); } finally { if (g === S.gen) { S.busy = false; renderChat(); } } }
+async function start(g) {
+  const sc = S.sc, d = sc.driver;
+  S.started = true; $('go').disabled = true;
+  S.lastWeek = sc.lastWeek ? score(sc.lastWeek.events, sc.lastWeek.balanceBefore, sc.date) : null;
+  S.prior = score(sc.prior, P.start, sc.date);
+  S.today = score(sc.events, S.prior.balance, sc.date);
+  S.status = 'running'; setDriver(true); renderChat();
+  const step = async (ms, ...a) => { if (g !== S.gen) throw 'stale'; const el = log(...a); await sleep(ms); if (g !== S.gen) throw 'stale'; return el; };
+  const t = S.today, ws = weekStart(sc.date);
+  await step(380, 'trigger', 'Timer diario 19:00 · America/Mexico_City', `Corrida del ${longDate(sc.date)}. Recorre a los conductores con actividad en la ventana del día.`,
+    { cron: '0 19 * * *', zona_horaria: 'America/Mexico_City', ventana_local: `${sc.date} 00:00 → 19:00`, ventana_utc: `${utcISO(sc.date, '00:00')} → ${utcISO(sc.date, '19:00')}` });
+  await step(380, 'ok', 'Unir conductor de Samsara con el TMS', `driver.id ${d.samsaraId} → ${d.tmsId} en SimpliRoute. ${d.phone ? 'Teléfono ' + maskPhone(d.phone) + '.' : 'El campo de teléfono está vacío.'}`,
+    { samsara_driver_id: d.samsaraId, tms_conductor: d.tmsId, nombre: d.name, telefono: d.phone ? maskPhone(d.phone) : null, llave_union: 'PENDIENTE de definir (tabla de equivalencias del piloto)' });
+  await step(380, 'ok', 'Consultar saldo semanal vigente', `Semana del ${longDate(ws)}: arrancó en 100, llegó a hoy con ${S.prior.balance}.`,
+    { semana_inicio: ws + ' 00:00 CDMX', saldo_inicio: P.start, eventos_previos: S.prior.events.map(e => ({ id: e.id, tipo: e.type, local: e.date + ' ' + e.local, puntos: e.applied, deduplicado: e.dedup })), saldo_antes_de_hoy: S.prior.balance });
+  if (S.lastWeek) await step(380, 'info', 'Eventos del domingo después de las 19:00', `${S.lastWeek.events.length} alertas que caen en la semana que cerró el lunes 00:00 (cerró en ${S.lastWeek.balance} pts). Se le comunican aparte, como de la semana pasada.`,
+    S.lastWeek.events.map(e => ({ id: e.id, behaviorLabel: e.type, time_utc: e.utc, local: e.date + ' ' + e.local, puntos: e.applied })));
+  const raw = t.events.length, dd = t.events.filter(e => e.dedup);
+  await step(380, 'ok', 'Consultar alertas del día por tipo', raw ? `${raw} eventos entre 00:00 y 19:00. Saldo al cierre: ${t.balance}/100.` : 'Sin eventos entre 00:00 y 19:00.',
+    raw ? t.events.map(e => ({ id: e.id, behaviorLabel: e.type, etiqueta_fema: CAT[e.type].label + (CAT[e.type].pending ? ' (mapeo por confirmar)' : ''), time_utc: e.utc, local: e.local, puntos: e.applied, deduplicado: e.dedup })) : null);
+  if (dd.length) await step(380, 'info', 'Deduplicación de 5 minutos', dd.map(e => `${CAT[e.type].label} de las ${e.local}: misma conducta dentro de 5 min, se guarda pero no resta puntos.`).join('\n'));
+  await step(380, 'info', raw ? 'Tuvo alertas hoy' : 'Sin alertas hoy', raw ? 'Se envía su saldo y las alertas agrupadas por tipo.' : 'Se envía un mensaje corto de refuerzo positivo con su saldo (propuesta a confirmar).');
+  if (!d.phone) {
+    await step(380, 'warn', 'Conductor sin teléfono', 'No se le escribe. Se registra como no contactable.');
+    sys('conductor', 'Este conductor no tiene teléfono en el TMS de SimpliRoute: ADA no le escribe.');
+  } else {
+    await say('conductor', buildOpening());
+    await step(320, 'action', 'Enviar WhatsApp de cierre', 'Mensaje entregado. Si fallara: 1 reintento a los 30 min y luego se registra como no contactado.',
+      { canal: 'WhatsApp', para: maskPhone(d.phone), plantilla: raw ? 'cierre_diario_con_alertas' : 'cierre_diario_refuerzo', estado_entrega: 'delivered' });
+  }
+  const below = t.balance < P.threshold;
+  await step(380, below ? 'warn' : 'info', `Umbral de capacitación (${P.threshold} pts)`, below ? `${t.balance} < ${P.threshold}: queda la marca de capacitación en el dashboard. No se le comunica al conductor; lo decide el supervisor.` : `${t.balance} ≥ ${P.threshold}: sin marca.`);
+  await step(380, 'ok', 'Guardar el agregado del día', 'Alertas por tipo, puntos restados, saldo al cierre y estado de contacto.',
+    { conductor: d.samsaraId, fecha: sc.date, alertas_por_tipo: Object.fromEntries(groupByType(t.events).map(([k, l]) => [k, l.length])), puntos_restados: t.events.reduce((s, e) => s + e.applied, 0), saldo_cierre: t.balance, marca_capacitacion: below, contacto: d.phone ? 'entregado' : 'no_contactable' }, 'Registro');
+  if (!d.phone) {
+    log('end', 'Fin del flujo', 'Conductor no contactable.'); summary('Sin teléfono en el TMS: el cierre se registró y el conductor quedó como no contactable.');
+    S.status = 'nocontact'; setDriver(true); return;
+  }
+  waitStep();
+  S.status = 'waiting'; setDriver(true);
+}
+function waitStep() { log('wait', 'Esperando respuesta del conductor', `Ventana abierta hasta las ${hm(P.closeHour * 60 + P.windowH * 60)} del ${longDate(addDays(S.sc.date, 1))}. No responder no es una falta.`); }
+
+/* ---------- Prompt para la IA ---------- */
+function evJSON(e) {
+  return { id: e.id, tipo: CAT[e.type].label, campo_samsara: e.type, fecha: longDate(e.date), hora_local: e.local, puntos_restados: e.applied, deduplicada: e.dedup,
+    vehiculo: S.sc.driver.vehicle, video_disponible: videoReady(e), ...(videoReady(e) ? {} : { video_disponible_desde: videoFrom(e) }) };
+}
+function buildPrompt() {
+  const d = S.sc.driver;
+  const ctx = {
+    conductor: { nombre: d.name, primer_nombre: d.first, driver_id: d.samsaraId },
+    fecha_del_cierre: longDate(S.sc.date) + ' de 2026',
+    hora_simulada_actual: simLabel() + ' (CDMX)',
+    score: { saldo_actual: S.today.balance, inicio_de_semana: longDate(weekStart(S.sc.date)) + ' 00:00, con 100 puntos', saldo_antes_de_hoy: S.prior.balance },
+    alertas_de_hoy: S.today.events.map(evJSON),
+    alertas_de_dias_anteriores_esta_semana: S.prior.events.map(evJSON),
+    ...(S.lastWeek ? { alertas_de_la_semana_pasada_domingo_despues_de_19h: S.lastWeek.events.map(evJSON), saldo_final_semana_pasada: S.lastWeek.balance } : {}),
+  };
+  return `Eres ADA, el agente de IA de SimpliRoute que ejecuta el FLUJO 2 (cierre diario por WhatsApp) de seguridad de conducción de una flota de transporte con dash cams Samsara. Es una simulación de preventa con datos de ejemplo; compórtate exactamente como lo haría el agente en producción.
+
+PROPÓSITO: que el conductor entienda su score, no que se sienta sancionado.
+
+REGLAS DE COMUNICACIÓN
+- Español de México, breve (máximo 90 palabras), respetuoso y factual. Informar y corregir, no castigar ni regañar. Nunca amenaces con consecuencias laborales. Sin emojis.
+- Formato WhatsApp: *negritas* con un asterisco a cada lado y viñetas con "• ".
+- Todas las horas en hora del centro de México. Nunca muestres UTC.
+- No menciones el umbral de capacitación ni capacitaciones: eso lo decide el supervisor.
+
+REGLAS DEL SCORE (por si pregunta)
+- Cada lunes 00:00 arranca con 100 puntos. Cada alerta resta puntos del saldo de la semana. No se reinicia cada día. Nunca baja de 0.
+- Puntos por alerta: cámara obstruida 10, exceso severo de velocidad 10, velocidad máxima 5, acompañante 5, frenado brusco 5, uso de dispositivo móvil 2, distracción 2.
+- Alertas del mismo tipo dentro de 5 minutos cuentan como una sola (deduplicada = 0 puntos).
+
+QUÉ HACER SEGÚN LO QUE ESCRIBA EL CONDUCTOR
+1. Pide detalle o video de una alerta: responde con fecha y hora local, tipo de alerta y puntos restados. Para el video escribe exactamente el marcador [[VIDEO:<id>]] SOLO si video_disponible es true. Si es false, dile que el video se está procesando y que se lo envías por aquí en cuanto esté (acción video_procesando con su evento_id). Nunca inventes links. Si la alerta es de otro día, aclara a qué día corresponde. Si no queda claro cuál quiere, pregúntale (solicitar_aclaracion).
+2. Pide una alerta que no existe en su registro: dilo claramente y no inventes ningún evento (alerta_no_encontrada).
+3. ESCALAR (estado "escalada") cuando: cuestiona o no está de acuerdo con una alerta, dice que no era él quien conducía, o pide algo fuera de tu alcance (vacaciones, nómina, pagos, su ruta, permisos, temas laborales, si lo van a correr). No improvises una respuesta de fondo: dile con amabilidad que pasas la conversación a su supervisor, que lo contactará. Incluye resumen_supervisor con el contexto (alerta, hora, lo que dijo).
+4. Pregunta por su score: explícalo con sus datos reales (explicar_score).
+5. Agradece o se despide: cierra cordialmente (cerrar_conversacion, estado "resuelta").
+6. Si ya le entregaste el detalle que pidió, el estado es "resuelta". Si queda algo pendiente (video en proceso, aclaración), "abierta".
+
+DATOS DEL CONDUCTOR (JSON)
+${JSON.stringify(ctx, null, 1)}
+
+CONVERSACIÓN HASTA AHORA (WhatsApp)
+${S.transcript.map(m => m.who + ': ' + m.text).join('\n\n')}
+
+Responde SOLO con un objeto JSON, sin texto adicional, con esta forma:
+{"intencion":"detalle_alerta|cuestiona_alerta|no_era_yo|fuera_de_alcance|alerta_inexistente|pregunta_score|agradecimiento|otro",
+ "acciones":[{"tipo":"consultar_evento|video_disponible|video_procesando|alerta_no_encontrada|explicar_score|solicitar_aclaracion|escalar_supervisor|cerrar_conversacion","detalle":"frase corta en español de lo que hiciste","evento_id":"solo si aplica"}],
+ "respuesta":"el mensaje de WhatsApp para el conductor",
+ "estado":"abierta|resuelta|escalada",
+ "resumen_supervisor":"solo si estado es escalada"}`;
+}
+
+/* ---------- Guion local (respaldo sin IA) ---------- */
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const TYPE_KW = [['obstructedCamera', /camara|obstru|tapad|lente/], ['mobileUsage', /celular|movil|telefono|\bcel\b/], ['braking', /fren/], ['genericDistraction', /distrac/], ['severeSpeeding', /exceso|severo/], ['maxSpeed', /velocidad/], ['passenger', /acompan|pasajer/]];
+function rules(text) {
+  const t = norm(text), d = S.sc.driver, all = allEvents(), today = S.today.events;
+  const times = [...t.matchAll(/\b(\d{1,2})[:.](\d{2})\b/g)].map(m => pad(+m[1]) + ':' + m[2]);
+  const kw = TYPE_KW.filter(([, re]) => re.test(t)).map(x => x[0]);
+  let refs = times.length ? all.filter(e => times.includes(e.local)) : [];
+  if (!refs.length && kw.length) {
+    refs = all.filter(e => kw.includes(e.type));
+    if (/ayer/.test(t)) refs = refs.filter(e => e.date === addDays(S.sc.date, -1));
+    else if (/domingo|semana pasada/.test(t)) refs = refs.filter(e => S.lastWeek && S.lastWeek.events.includes(e));
+    else { const td = refs.filter(e => e.date === S.sc.date); if (td.length) refs = td; }
+  }
+  if (!refs.length && !times.length && /ayer/.test(t)) refs = all.filter(e => e.date === addDays(S.sc.date, -1));
+  if (!refs.length && !times.length && /de hoy/.test(t)) refs = today;
+  const ref = refs[0];
+  const refTxt = ref ? `la alerta de ${CAT[ref.type].label} del ${longDate(ref.date)} a las ${ref.local}` : 'una alerta';
+  const escal = (intencion, reason, reply) => ({ intencion, estado: 'escalada', respuesta: reply,
+    acciones: [...(ref ? [{ tipo: 'consultar_evento', detalle: 'Ubiqué ' + refTxt, evento_id: ref.id }] : []), { tipo: 'escalar_supervisor', detalle: reason }],
+    resumen_supervisor: `${reason}${ref ? ': ' + refTxt : ''}.` });
+  if (/no (era|iba|estaba|fui) yo|otro (chofer|conductor|operador)|mi companero|no (manejaba|conducia|iba manejando)|manejaba (mi|otro)/.test(t))
+    return escal('no_era_yo', 'Indica que no era él quien conducía', `Gracias por avisarme, ${d.first}. Como me dices que no eras tú quien manejaba, paso tu caso a tu supervisor con el detalle de ${refTxt} para que lo revise contigo. Él te va a contactar.`);
+  if (/no estoy de acuerdo|injust|no es cierto|no es justo|mentira|esta mal|equivoc|no hice|no fue asi|reclam|por que me (quitaron|bajaron|descontaron)/.test(t))
+    return escal('cuestiona_alerta', 'Cuestiona la alerta', `Entiendo, ${d.first}. Para revisar ${refTxt} con calma, paso tu comentario a tu supervisor con todo el contexto. Él te va a contactar para verlo contigo.`);
+  if (/vacacion|nomina|pago|sueldo|quincena|ruta|permiso|incapacidad|aguinaldo|bono|correr|despid|sancion|castig|descuento/.test(t))
+    return escal('fuera_de_alcance', 'Pregunta algo fuera del alcance de ADA', `Esa pregunta no la puedo resolver yo, ${d.first}: mi trabajo es ayudarte a entender tu score de seguridad. Ya le pasé tu mensaje a tu supervisor para que te responda directamente.`);
+  if ((times.length || kw.length) && !refs.length) {
+    const what = times.length ? 'a las ' + joinTimes(times) : 'de ' + kw.map(k => CAT[k].label.toLowerCase()).join(' o ');
+    return { intencion: 'alerta_inexistente', estado: 'abierta', acciones: [{ tipo: 'alerta_no_encontrada', detalle: 'Sin coincidencias en su registro para la alerta ' + what }],
+      respuesta: `No encuentro ninguna alerta ${what} en tu registro de esta semana.${today.length ? ' Las de hoy son:\n' + alertLines(today) + '\n\n¿De cuál quieres el detalle?' : ''}` };
+  }
+  if (refs.length || /video|detalle|muestrame|mandame|que paso|cual fue|todas/.test(t)) {
+    if (!refs.length && /todas/.test(t)) refs = today;
+    if (!refs.length) return clarify();
+    const acts = [], parts = []; let pend = false;
+    refs.slice(0, 3).forEach(e => {
+      const ok = videoReady(e); if (!ok) pend = true;
+      acts.push({ tipo: 'consultar_evento', detalle: `${CAT[e.type].label} de las ${e.local}`, evento_id: e.id });
+      acts.push({ tipo: ok ? 'video_disponible' : 'video_procesando', detalle: '', evento_id: e.id });
+      parts.push(`*${CAT[e.type].label}*\n${cap(longDate(e.date))}, ${e.local} (hora del centro)\nPuntos: ${e.applied ? '−' + e.applied : '0, contó junto con la alerta anterior'}\n${ok ? '[[VIDEO:' + e.id + ']]' : 'El video todavía se está procesando. Te lo envío por aquí en cuanto esté listo.'}`);
+    });
+    return { intencion: 'detalle_alerta', estado: pend ? 'abierta' : 'resuelta', acciones: acts, respuesta: 'Claro, aquí está el detalle:\n\n' + parts.join('\n\n') };
+  }
+  if (/score|puntos|saldo|calific|calcula|subo|subir|mejorar/.test(t))
+    return { intencion: 'pregunta_score', estado: 'resuelta', acciones: [{ tipo: 'explicar_score', detalle: 'Saldo semanal explicado con sus datos' }],
+      respuesta: `Tu score empieza cada lunes en 100 puntos y cada alerta resta según su tipo. No se reinicia cada día, solo el lunes. Esta semana vas en *${S.today.balance} de 100*. Si la misma conducta se repite en menos de 5 minutos, cuenta una sola vez. Cada día sin alertas tu saldo se mantiene.` };
+  if (/gracias|enterado|entendido|de acuerdo|\bok\b|vale|sale|perfecto|buenas noches|hasta luego|igualmente/.test(t))
+    return { intencion: 'agradecimiento', estado: 'resuelta', acciones: [{ tipo: 'cerrar_conversacion', detalle: 'El conductor confirmó; cierre cordial' }], respuesta: `Con gusto, ${d.first}. Que descanses y maneja con cuidado.` };
+  return clarify();
+  function clarify() {
+    return { intencion: 'otro', estado: 'abierta', acciones: [{ tipo: 'solicitar_aclaracion', detalle: 'No quedó claro qué alerta busca' }],
+      respuesta: today.length ? `¿De cuál alerta quieres el detalle? Puedes decirme la hora o el tipo:\n${alertLines(today)}` : 'Hoy no tienes alertas registradas. Si quieres, te explico cómo se calcula tu score o te doy el detalle de alguna alerta de días anteriores.' };
+  }
+}
+
+/* ---------- Normalización ---------- */
+const INTENT = { detalle_alerta: 'Pide el detalle de una alerta', cuestiona_alerta: 'Cuestiona una alerta', no_era_yo: 'Dice que no era él quien conducía', fuera_de_alcance: 'Pide algo fuera del alcance', alerta_inexistente: 'Pide una alerta que no existe', pregunta_score: 'Pregunta por su score', agradecimiento: 'Agradece o se despide', otro: 'Mensaje ambiguo' };
+const MUST_ESCALATE = ['cuestiona_alerta', 'no_era_yo', 'fuera_de_alcance'];
+function normalize(r) {
+  const out = { intencion: INTENT[r && r.intencion] ? r.intencion : 'otro', acciones: Array.isArray(r && r.acciones) ? r.acciones.filter(a => a && a.tipo) : [],
+    respuesta: r && typeof r.respuesta === 'string' ? r.respuesta.trim() : '', estado: ['abierta', 'resuelta', 'escalada'].includes(r && r.estado) ? r.estado : 'abierta',
+    resumen_supervisor: r && r.resumen_supervisor ? String(r.resumen_supervisor) : '' };
+  if (MUST_ESCALATE.includes(out.intencion)) out.estado = 'escalada';
+  return out;
+}
+
+/* ---------- Pasos derivados de las acciones ---------- */
+function actionStep(a) {
+  const e = a.evento_id ? findEvent(a.evento_id) : null, det = a.detalle || '';
+  switch (a.tipo) {
+    case 'consultar_evento':
+      if (!e) return log('warn', 'Evento no encontrado', det);
+      return log('ok', 'Consultar el evento en Samsara', `GET /fleet/safety-events · ${CAT[e.type].label} · ${shortDate(e.date)} ${e.local}.`,
+        { request: { method: 'GET', path: '/fleet/safety-events', startTime: utcISO(e.date, e.local, -1), endTime: utcISO(e.date, e.local, 2), driverIds: [S.sc.driver.samsaraId] },
+          response: { id: e.id, behaviorLabels: [e.type], time: e.utc, driver: { id: S.sc.driver.samsaraId }, vehicle: { name: S.sc.driver.vehicle },
+            downloadForwardVideoUrl: videoReady(e) ? '<link firmado temporal: se pide de nuevo en cada consulta>' : null } });
+    case 'video_disponible':
+      return log('action', 'Adjuntar el video', e ? `Pasaron ${P.videoDelayMin} min o más desde las ${e.local}: el video ya está en la nube.` : det);
+    case 'video_procesando':
+      if (e && !videoReady(e)) S.pending.add(e.id);
+      return log('wait', 'Video aún procesándose', e ? `Evento de las ${e.local}: disponible desde las ${videoFrom(e)} (regla de ${P.videoDelayMin} min). Reintento programado; usa “+30 min” para verlo.` : det);
+    case 'alerta_no_encontrada':
+      return log('warn', 'La alerta pedida no existe', (det ? det + '. ' : '') + 'ADA lo dice claramente y no inventa un evento.');
+    case 'explicar_score':
+      return log('action', 'Explicar el cálculo del score', det || `Saldo ${S.today.balance}/100 desde el lunes.`);
+    case 'solicitar_aclaracion':
+      return log('action', 'Pedir aclaración al conductor', det);
+    case 'cerrar_conversacion':
+      return log('end', 'Criterio RESUELTO cumplido', det || 'El conductor recibió su cierre y no pidió más.');
+    case 'escalar_supervisor': return null;
+    default: return log('action', cap(String(a.tipo).replace(/_/g, ' ')), det);
+  }
+}
+
+/* ---------- Conversación ---------- */
+async function askAI() {
+  if (!sample) throw { code: 'unavailable' };
+  const r = await sample.json(buildPrompt(), { modelTier: $('precise').checked ? 'default' : 'quick', cache: false });
+  if (!r || typeof r.respuesta !== 'string' || !r.respuesta.trim()) throw { code: 'invalid_json' };
+  return r;
+}
+function send(text) {
+  text = (text || '').trim(); if (!text || !canReply()) return;
+  $('text').value = '';
+  run(async g => {
+    tick(1); push('conductor', { dir: 'in', text, time: now() }); S.transcript.push({ who: 'Conductor', text });
+    log('in', 'Mensaje del conductor', '“' + text + '”', null, 'Entrada');
+    S.typing = 'conductor'; renderChat();
+    let res, via, note = '';
+    try { res = await askAI(); via = 'IA ' + ($('precise').checked ? 'precisa' : 'rápida'); }
+    catch (e) {
+      const code = e && e.code;
+      if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(code)) { sample = null; setEngine('local'); }
+      if (code && code !== 'unavailable') note = ` La IA no respondió (${code}).`;
+      res = rules(text); via = 'guion local';
+    }
+    if (g !== S.gen) throw 'stale';
+    S.typing = null;
+    res = normalize(res); if (!res.respuesta) res = normalize(rules(text));
+    log('ai', 'Intención: ' + INTENT[res.intencion], 'Motor: ' + via + '.' + note, { intencion: res.intencion, estado: res.estado, acciones: res.acciones });
+    for (const a of res.acciones) { if (actionStep(a)) await sleep(220); if (g !== S.gen) throw 'stale'; }
+    await say('conductor', res.respuesta);
+    log('action', 'Responder por WhatsApp', 'Mensaje entregado al conductor.');
+    if (res.estado === 'escalada') return escalate(res, text);
+    S.status = res.estado === 'resuelta' ? 'resolved' : 'waiting'; setDriver(true);
+    waitStep();
+  });
+}
+async function escalate(res, lastText) {
+  const d = S.sc.driver;
+  log('warn', 'Escalar al supervisor', `${INTENT[res.intencion]}. ADA no improvisa una respuesta de fondo.`);
+  const msg = `Hola, soy ADA. Te paso una conversación del cierre diario que necesita tu revisión.\n\n*Conductor:* ${d.name} (driver.id ${d.samsaraId})\n*Vehículo:* ${d.vehicle}\n*Score semanal:* ${S.today.balance}/100\n*Motivo:* ${INTENT[res.intencion]}\n*Contexto:* ${res.resumen_supervisor || 'Ver conversación.'}\n*Lo que escribió:* “${lastText}”\n\nADA ya no le responde sobre este tema; la conversación queda contigo.`;
+  await say('supervisor', msg);
+  log('action', 'Handoff por WhatsApp al supervisor', 'Se envía el contexto completo y la conversación. El destino está PENDIENTE de definir.',
+    { motivo: res.intencion, conductor: d.name, driver_id: d.samsaraId, saldo_semana: S.today.balance, hora_local: simLabel(), resumen: res.resumen_supervisor, conversacion: S.transcript });
+  sys('conductor', 'Conversación transferida al supervisor.');
+  log('end', 'Fin del flujo', 'La conversación queda con el supervisor.');
+  summary(`${d.first} ${res.intencion === 'fuera_de_alcance' ? 'pidió algo fuera del alcance de ADA' : res.intencion === 'no_era_yo' ? 'dijo que no era él quien manejaba' : 'cuestionó una alerta'}: ADA escaló al supervisor con el contexto completo.`);
+  S.status = 'escalated'; setDriver(true);
+}
+function advance() {
+  if (S.busy || !S.started) return;
+  run(async g => {
+    tick(30); log('trigger', 'Reloj simulado +30 min', 'Ahora son las ' + now() + ' CDMX.', null, 'Reloj');
+    if (!(S.status === 'waiting' || S.status === 'resolved')) return;
+    let acted = false;
+    for (const id of [...S.pending]) {
+      const e = findEvent(id); if (!e) { S.pending.delete(id); continue; }
+      await sleep(240); if (g !== S.gen) throw 'stale';
+      acted = true;
+      if (videoReady(e)) {
+        S.pending.delete(id);
+        log('ok', 'Reintento: video disponible', `GET /fleet/safety-events · ${CAT[e.type].label} ${e.local} · se pide un link nuevo.`);
+        await say('conductor', `Ya está listo el video de la alerta de *${CAT[e.type].label}* de hoy a las ${e.local}:\n[[VIDEO:${e.id}]]`);
+        log('end', 'Criterio RESUELTO cumplido', 'Se entregó el detalle que pidió el conductor.');
+        S.status = 'resolved';
+      } else if (S.retried.has(id)) {
+        S.pending.delete(id);
+        log('warn', 'Reintento sin éxito', 'El video sigue sin estar. ADA lo dice con honestidad en vez de mandar un link roto.');
+        await say('conductor', `Todavía no puedo recuperar el video de la alerta de *${CAT[e.type].label}* de las ${e.local}. Prefiero decírtelo antes que mandarte un link que no funcione. Si lo necesitas, tu supervisor puede solicitarlo.`);
+      } else {
+        S.retried.add(id);
+        log('wait', 'Video aún no disponible', `Disponible desde las ${videoFrom(e)}. Se intentará una vez más.`);
+      }
+    }
+    setDriver(true);
+    if (acted) waitStep();
+  });
+}
+function closeWindow() {
+  if (!canReply()) return;
+  run(async () => {
+    S.simMin = P.closeHour * 60 + P.windowH * 60; updateClock();
+    log('end', 'Ventana de 12 h vencida', S.status === 'resolved' ? 'Conversación cerrada como resuelta.' : 'Cierre sin escalar: no responder no es una falta.');
+    sys('conductor', 'Ventana de conversación cerrada (12 h).');
+    summary(S.status === 'resolved' ? `${S.sc.driver.first} recibió su cierre y el detalle que pidió.` : `${S.sc.driver.first} recibió su cierre y no respondió. Se cierra sin escalar.`);
+    S.status = 'closed'; setDriver(true);
+  });
+}
+
+/* ---------- Eventos ---------- */
+const sel = $('preset');
+SCENARIOS.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; sel.appendChild(o); });
+sel.addEventListener('change', reset);
+$('form').addEventListener('submit', e => { e.preventDefault(); if (!S.started) run(start); });
+$('reset').addEventListener('click', reset);
+$('advance').addEventListener('click', advance);
+$('composer').addEventListener('submit', e => { e.preventDefault(); send($('text').value); });
+
+reset();
+setEngine('connecting');
+if (window.claude && typeof window.claude.use === 'function') window.claude.use('sample').then(s => { sample = s; setEngine(s ? 'ai' : 'local'); }).catch(() => setEngine('local'));
+else setEngine('local');
+})();
+</script>
+
+</body></html>
