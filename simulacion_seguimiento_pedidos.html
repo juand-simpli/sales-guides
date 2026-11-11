@@ -1,0 +1,999 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Seguimiento de pedidos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: banda de marca arriba; abajo dos paneles: escenario + estado + registro de ejecución (izquierda) y WhatsApp (derecha).
+   Tema claro único y de alto contraste. Tokens SimpliRoute Apollo DS. */
+:root{
+  --ink:#0C0645; --brand:#4C3BEF; --brand-600:#2A16DA; --brand-soft:#F3F2FE; --brand-200:#D4D0FB;
+  --bg:#F4F4F7; --surface:#FFFFFF; --line:#DBDBE0; --line-soft:#E9E9EB;
+  --fg:#22242A; --muted:#55586C; --subtle:#73768C;
+  --ok:#00804A; --ok-soft:#E3FBEF; --warn:#7A5B00; --warn-soft:#FFF6D6; --err:#B3112A; --err-soft:#FDECEC;
+  --chat-bg:#ECEEF6; --bubble-out:#E6E3FF; --bubble-in:#FFFFFF;
+  --font:'Open Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'Roboto Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --r-sm:6px; --r-md:8px; --r-lg:12px;
+  --shadow:0 1px 3px rgba(34,36,42,.10),0 1px 2px rgba(34,36,42,.06);
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.5;display:flex;flex-direction:column;min-height:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+/* Banda */
+.band{background:var(--ink);color:#fff}
+.band-in{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.band img.logo{height:24px;width:auto;display:block}
+.band .sep{width:1px;height:28px;background:rgba(255,255,255,.25)}
+.band h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.band .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#C9C4FF;font-weight:600}
+.band .titles{display:flex;flex-direction:column;min-width:0}
+.band .spacer{flex:1}
+.badge-sim{font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:4px 10px;color:#fff;white-space:nowrap}
+.badge-sim.clock{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums}
+/* Grid */
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:16px;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.col{min-height:0;min-width:0;display:flex;flex-direction:column;gap:16px}
+.col>*{flex:none}
+.col>.log-card,.col>.chat{flex:1 0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);min-width:0}
+.card-h{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line-soft)}
+.card-h h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+.card-h .hint{margin-left:auto;font-size:12px;color:var(--muted)}
+.caps{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+/* Escenario */
+details.api{overflow:hidden}
+details.api summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 16px}
+details.api summary::-webkit-details-marker{display:none}
+details.api summary h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+details.api summary .chev{margin-left:auto;transition:transform .18s;color:var(--muted)}
+details.api[open] summary .chev{transform:rotate(180deg)}
+details.api[open] summary{border-bottom:1px solid var(--line-soft)}
+.api-pill{font-family:var(--mono);font-size:11px;font-weight:500;background:var(--brand-soft);color:var(--brand-600);border-radius:var(--r-sm);padding:2px 6px;white-space:nowrap}
+.api-pill.off{background:var(--line-soft);color:var(--muted)}
+.form{padding:14px 16px 16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f.w2{grid-column:span 2}.f.w4{grid-column:1/-1}
+.f label{font-size:12px;font-weight:600;color:var(--muted)}
+.f input,.f select{width:100%;min-width:0;border:1px solid var(--line);border-radius:var(--r-md);padding:7px 9px;background:#fff;font-size:13.5px}
+.f input:focus,.f select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(76,59,239,.18)}
+.f .desc{font-size:13px;color:var(--fg);padding:7px 0 0}
+.form-actions{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding-top:4px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:var(--r-md);padding:8px 14px;font-weight:600;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:var(--brand-soft)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:var(--brand-600)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--fg);cursor:pointer;margin-left:auto}
+.toggle input{accent-color:var(--brand);width:16px;height:16px}
+/* Estado (kv) */
+.visit{padding:14px 16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px}
+.kv{min-width:0}
+.kv .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.kv .v{font-weight:600;color:var(--fg);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;border-radius:4px;transition:background-color .6s}
+.kv .v.flash{background:var(--brand-200)}
+.tags{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;min-height:24px}
+.tag{font-family:var(--mono);font-size:11.5px;border-radius:999px;padding:2px 9px;border:1px solid var(--line);background:#fff;color:var(--muted)}
+.tag.ok{background:var(--ok-soft);border-color:#9FDDBF;color:var(--ok)}
+.tag.warn{background:var(--warn-soft);border-color:#EED48A;color:var(--warn)}
+.tag.err{background:var(--err-soft);border-color:#F3B3BC;color:var(--err)}
+.tag.brand{background:var(--brand-soft);border-color:var(--brand-200);color:var(--brand-600)}
+.prio{display:inline-block;border-radius:var(--r-sm);padding:0 8px}
+.prio.p1{background:var(--brand);color:#fff}
+.prio.low{background:var(--err);color:#fff}
+.meter{grid-column:1/-1;position:relative;height:8px;border-radius:999px;background:var(--line-soft);margin:2px 0 14px}
+.meter .fill{position:absolute;inset:0 auto 0 0;border-radius:999px;background:var(--brand);transition:width .6s}
+.meter.low .fill{background:var(--err)}
+.meter .tick{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.meter .tick i{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap}
+/* Registro */
+.log-card{min-height:320px;display:flex;flex-direction:column}
+.log{list-style:none;margin:0;padding:8px 16px 16px;overflow:auto;flex:1;min-height:0}
+.step{display:grid;grid-template-columns:46px 22px minmax(0,1fr);gap:0 10px;position:relative;padding-top:12px}
+.step .t{font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:1px;font-variant-numeric:tabular-nums}
+.step .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;background:var(--brand);position:relative;z-index:1}
+.step:not(:last-child) .rail{position:absolute;left:66px;top:34px;bottom:-12px;width:2px;background:var(--line-soft)}
+.step.ok .dot{background:var(--ok)}
+.step.warn .dot{background:var(--err)}
+.step.wait .dot{background:#C99400}
+.step.info .dot{background:#7F56D9}
+.step.end .dot{background:var(--ink)}
+.step .body{min-width:0;padding-bottom:2px}
+.step .row1{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.step .title{font-weight:700;color:var(--ink)}
+.chip{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-radius:4px;padding:1px 6px;background:var(--brand-soft);color:var(--brand-600)}
+.step.ok .chip{background:var(--ok-soft);color:var(--ok)}
+.step.warn .chip{background:var(--err-soft);color:var(--err)}
+.step.wait .chip{background:var(--warn-soft);color:var(--warn)}
+.step.info .chip{background:#F1EBFC;color:#5B34B5}
+.step.end .chip{background:var(--line-soft);color:var(--ink)}
+.step .d{color:var(--fg);font-size:13.5px;margin-top:1px;white-space:pre-line}
+.step pre{margin:8px 0 0;font-family:var(--mono);font-size:11.5px;line-height:1.5;background:#F7F7FB;border:1px solid var(--line-soft);border-radius:var(--r-md);padding:10px 12px;overflow:auto;max-height:240px;color:#2B2D5C}
+.step.live .dot{box-shadow:0 0 0 4px rgba(201,148,0,.25)}
+.empty{padding:20px 16px;color:var(--muted)}
+.empty ol{margin:8px 0 0;padding-left:20px}
+.empty li{margin:4px 0}
+.summary{margin:14px 0 0 56px;border:1px solid var(--brand-200);background:var(--brand-soft);border-radius:var(--r-md);padding:10px 12px;font-size:13.5px;color:var(--ink)}
+/* Chat */
+.chat{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
+.tabs{display:flex;gap:4px;padding:8px 8px 0;border-bottom:1px solid var(--line-soft);overflow-x:auto}
+.tab{border:0;background:transparent;padding:8px 12px 10px;font-weight:600;font-size:13px;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--brand)}
+.tab .n{min-width:18px;height:18px;border-radius:9px;background:var(--err);color:#fff;font-size:11px;display:inline-grid;place-items:center;padding:0 5px}
+.chat-h{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+.av{width:36px;height:36px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.chat-h .nm{font-weight:700;color:var(--ink);line-height:1.2}
+.chat-h .sub{font-size:12px;color:var(--muted)}
+.chat-h .wa{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--ok);background:var(--ok-soft);border-radius:999px;padding:3px 9px}
+.msgs{flex:1;min-height:220px;overflow:auto;background:var(--chat-bg);padding:14px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:84%;padding:8px 11px 6px;border-radius:12px;box-shadow:0 1px 1px rgba(34,36,42,.08);white-space:pre-wrap;overflow-wrap:anywhere;font-size:13.5px}
+.msg.out{align-self:flex-end;background:var(--bubble-out);border-bottom-right-radius:4px;color:var(--ink)}
+.msg.in{align-self:flex-start;background:var(--bubble-in);border-bottom-left-radius:4px}
+.msg strong{font-weight:700}
+.msg .meta{display:flex;align-items:center;gap:6px;justify-content:flex-end;font-size:11px;color:var(--muted);margin-top:3px}
+.msg.out .from{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--brand-600);margin-bottom:2px}
+.ada{width:20px;height:20px;flex:none;display:block;object-fit:contain}
+.sys{align-self:center;font-size:12px;color:var(--muted);background:rgba(255,255,255,.7);border-radius:999px;padding:3px 10px;text-align:center}
+.typing{align-self:flex-end;display:flex;align-items:center;gap:8px;background:var(--bubble-out);border-radius:12px;padding:7px 11px;font-size:12px;color:var(--brand-600);font-weight:600}
+.typing .ada{width:30px;height:30px}
+.dots{display:inline-flex;gap:3px}
+.dots i{width:5px;height:5px;border-radius:50%;background:var(--brand);opacity:.35;animation:b 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,100%{opacity:.25}50%{opacity:1}}
+/* Adjunto dentro de un mensaje de ADA (video, PDF, link) */
+.vid{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--brand-200);border-radius:var(--r-md);padding:8px 10px;margin:6px 0 2px;white-space:normal}
+.vid .play{width:30px;height:30px;border-radius:50%;background:var(--brand);display:grid;place-items:center;flex:none}
+.vid .play::after{content:"";border-left:9px solid #fff;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px}
+.vid b{display:block;font-size:13px;color:var(--ink)}
+.vid small{display:block;font-size:11.5px;color:var(--muted);line-height:1.35}
+.vpend{display:inline-block;font-family:var(--mono);font-size:11.5px;border-radius:999px;padding:1px 8px;background:var(--warn-soft);color:var(--warn);border:1px solid #EED48A}
+.msg,.step,.typing{animation:pop .22s cubic-bezier(.2,0,0,1)}
+@keyframes pop{from{transform:translateY(4px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.msg,.step,.typing{animation:none}.dots i{animation:none;opacity:.7}.kv .v,.meter .fill{transition:none}}
+.qr{display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px 0;background:#fff}
+.qr button{border:1px solid var(--brand);color:var(--brand-600);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer}
+.qr button:hover{background:var(--brand-soft)}
+.qr button.ghost{border-color:var(--line);color:var(--muted)}
+.qr button:disabled{opacity:.5;cursor:not-allowed}
+.composer{display:flex;gap:8px;padding:10px 12px 12px;background:#fff;align-items:center;flex-wrap:wrap}
+.composer .as{flex-basis:100%;font-size:12px;color:var(--muted)}
+.composer .as b{color:var(--ink)}
+.composer input{flex:1;min-width:0;border:1px solid var(--line);border-radius:999px;padding:9px 14px}
+.composer input:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(76,59,239,.18)}
+.composer input:disabled{background:var(--bg)}
+.send{width:40px;height:40px;border-radius:50%;border:0;background:var(--brand);color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}
+.send:disabled{opacity:.45;cursor:not-allowed}
+footer{font-size:12px;color:var(--muted);padding-block:0 14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+/* Responsive */
+@media (min-width:1001px){
+  body{height:100%} main{overflow:hidden} .col{overflow:auto} .col.right{overflow:hidden} .chat{height:100%}
+  .col>.log-card{flex:1 1 0;min-height:240px}
+}
+@media (max-width:1000px){
+  html,body{height:auto}
+  main{flex:none;grid-template-columns:minmax(0,1fr)}
+  .col>.log-card,.col>.chat{flex:none}
+  .log{max-height:none} .msgs{max-height:60vh}
+}
+@media (max-width:560px){
+  .form,.visit{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .f.w2{grid-column:1/-1} .band .sep{display:none} .toggle{margin-left:0}
+}
+</style>
+
+<style>
+.chat-h .wa.mail{color:var(--brand-600);background:var(--brand-soft)}
+.vid .ico{width:30px;height:30px;border-radius:8px;background:var(--brand);color:#fff;display:grid;place-items:center;flex:none}
+.vid .txt{min-width:0}
+.btn .lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vote-row{display:flex;gap:8px;margin:8px 0 2px;white-space:normal}
+.vote{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--brand);background:#fff;color:var(--brand-600);border-radius:999px;padding:7px 12px;font-weight:700;font-size:13px;cursor:pointer}
+.vote:hover:not(:disabled){background:var(--brand-soft)}
+.vote:disabled{cursor:default;opacity:.55}
+.vote.sel{background:var(--brand);border-color:var(--brand);color:#fff;opacity:1}
+.vote.down svg{transform:rotate(180deg)}
+button.vid{width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
+button.vid:hover:not(:disabled){background:var(--brand-soft)}
+button.vid.off{cursor:default;opacity:.6}
+button.vid.off .ico{background:var(--subtle)}
+.trk-modal{position:fixed;inset:0;z-index:50;background:rgba(12,6,69,.45);display:grid;place-items:center;padding:16px}
+.trk-card{background:#fff;border-radius:var(--r-lg);width:100%;max-width:440px;overflow:hidden;box-shadow:0 12px 40px rgba(12,6,69,.3)}
+.trk-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line-soft)}
+.trk-h b{color:var(--ink);font-size:15px}
+.trk-x{border:1px solid var(--line);background:#fff;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:14px;color:var(--muted)}
+.trk-map{display:block;width:100%;height:auto}
+.trk-info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;padding:12px 16px}
+.trk-note{margin:0;padding:0 16px 14px;font-size:12px;color:var(--muted)}
+</style>
+
+<header class="band"><div class="band-in">
+  <img class="logo" src="data:image/png;base64,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" alt="SimpliRoute">
+  <span class="sep" aria-hidden="true"></span>
+  <div class="titles"><span class="eyebrow">ADA · Autopartes · Piloto sucursal Iztapalapa</span><h1>Seguimiento de pedidos</h1></div>
+  <span class="spacer"></span>
+  <span class="badge-sim clock" id="clock"></span>
+  <span class="badge-sim">Simulación con datos de ejemplo</span>
+</div></header>
+<main>
+  <div class="col left">
+    <details class="card api" open>
+      <summary><span class="api-pill">SAP + SimpliRoute</span><h2>Eventos del pedido</h2><span class="api-pill off" id="engine">Conectando IA…</span>
+        <svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg></summary>
+      <form class="form" id="form" autocomplete="off">
+        <div class="f w2"><label for="preset">Ejemplo rápido</label><select id="preset"></select></div>
+        <div class="f w2"><label>Qué muestra</label><div class="desc" id="presetDesc"></div></div>
+        <div class="form-actions">
+          <button class="btn primary" type="submit" id="go"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11L12 7z" fill="currentColor"/></svg> <span class="lbl">Ingresar pedido</span></button>
+          <button class="btn" type="button" id="reset">Reiniciar</button>
+          <label class="toggle"><input type="checkbox" id="precise"> IA precisa</label>
+        </div>
+      </form>
+    </details>
+    <section class="card"><div class="card-h"><h2>Pedido</h2><span class="hint" id="objHint">Hora del centro de México</span></div><div class="visit" id="obj"></div></section>
+    <section class="card log-card"><div class="card-h"><h2>Registro de ejecución</h2><span class="hint" id="logHint">0 pasos</span></div><ol class="log" id="log"></ol></section>
+  </div>
+  <div class="col right">
+    <section class="card chat" aria-label="Conversaciones">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="chat-h" id="chatHead"></div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="qr" id="qr" hidden></div>
+      <form class="composer" id="composer" autocomplete="off">
+        <span class="as" id="asWho"></span>
+        <input id="text" placeholder="Escribe una respuesta…" aria-label="Mensaje" disabled>
+        <button class="send" id="sendBtn" type="submit" aria-label="Enviar" disabled><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 9l14-7-5 15-2.5-6z" fill="currentColor"/></svg></button>
+      </form>
+    </section>
+  </div>
+</main>
+<footer>Mockup de Seguimiento de pedidos: ADA reacciona a eventos de SAP (pedido ingresado desde SGB, factura creada o cancelada) y de SimpliRoute (inicio de ruta, «Notificar», cierre de visita) y acompaña al cliente por WhatsApp hasta la entrega. Los datos son de ejemplo.</footer>
+
+<script>
+(function(){
+const ADA = `<img class="ada" alt="" src="data:image/webp;base64,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">`;
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const hm = m => { m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m/60)) + ':' + pad(m%60); };
+const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+
+/* Calendario simulado (lunes 9 nov 2026 = día 0, hora del centro de México) */
+const BASE = Date.UTC(2026,10,9);
+const DOW = ['dom','lun','mar','mié','jue','vie','sáb'];
+const DOWL = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const MESL = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const dAt = min => new Date(BASE + min*60000);
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const dShort = min => { const d = dAt(min); return `${cap(DOW[d.getUTCDay()])} ${d.getUTCDate()} ${MES[d.getUTCMonth()]}`; };
+const dLong = min => { const d = dAt(min); return `${DOWL[d.getUTCDay()]} ${d.getUTCDate()} de ${MESL[d.getUTCMonth()]}`; };
+const at = (day,h,m) => day*1440 + h*60 + m;
+const dayOf = min => Math.floor(min/1440);
+const money = n => n.toLocaleString('es-MX',{style:'currency',currency:'MXN'});
+const first = n => n.split(' ')[0];
+
+const HORARIOS = [{l:'10:00 a 11:00',h:10},{l:'12:00 a 13:00',h:12},{l:'15:00 a 16:00',h:15},{l:'16:00 a 17:00',h:16}];
+const MAX_INTENTOS = 2;
+const SUCURSAL = 'Iztapalapa';
+const PEOPLE = { vendedor:'Luis Ortega (Agente de ventas)', coord:'Karla Méndez (Coord. Administrativo)', almacen:'Ramón Torres (Jefe de Almacén)' };
+
+const CONTACTS = {
+  principal: { tab:'Cliente', name:() => S.sc.contacto, sub:() => S.sc.empresa + ' · ' + S.sc.tel, responde:true, canal:'WhatsApp' },
+  chofer: { tab:'Chofer', name:() => S.sc.chofer ? S.sc.chofer.nombre : 'Chofer de reparto', sub:() => S.sc.chofer ? 'Chofer de reparto · ' + S.sc.chofer.tel : 'No aplica: el pedido se recoge en sucursal', responde:false, canal:'WhatsApp' },
+  correo: { tab:'Correos internos', name:() => 'Notificaciones internas', sub:() => 'Vendedor · Coord. Administrativo · Jefe de Almacén', responde:false, canal:'Correo' },
+};
+const FIRMA = 'ADA · Servicio al cliente';
+
+const SCENARIOS = [
+  { id:'feliz', name:'Estándar · entrega exitosa', desc:'Camino completo: confirma el pedido, sale a ruta con hora estimada, lo recibe y califica la entrega.',
+    empresa:'Refaccionaria El Pistón', contacto:'Martha Sánchez', tel:'+52 55 2481 3307', pedido:'12589', factura:'090485632', tipo:'estandar',
+    partidas:[{q:4,d:'Balatas delanteras cerámicas',p:689},{q:10,d:'Filtro de aceite',p:94},{q:8,d:'Bujía de iridio',p:212}],
+    chofer:{nombre:'Jorge Ramírez', tel:'+52 55 3920 1174'}, ruta:{id:'R-IZT-03', visitas:14, posicion:6}, plan:{intentos:['exitosa']} },
+  { id:'incorrecto', name:'Estándar · pedido incorrecto', desc:'Responde «No» y ADA pregunta qué está mal antes de avisar al vendedor. O usa «Simular que no responde» dos veces: recordatorio y luego escalamiento.',
+    empresa:'Frenos y Clutch Galván', contacto:'Héctor Galván', tel:'+52 55 6178 2240', pedido:'12596', factura:'090485647', tipo:'estandar',
+    partidas:[{q:2,d:'Amortiguador delantero',p:1450},{q:1,d:'Kit de clutch',p:3890},{q:6,d:'Líquido de frenos DOT 4 (1 L)',p:165}],
+    chofer:{nombre:'Miguel Hernández', tel:'+52 55 6012 4439'}, ruta:{id:'R-IZT-07', visitas:11, posicion:3}, plan:{intentos:['exitosa']} },
+  { id:'sucursal', name:'Recoge en sucursal · agenda recolección', desc:'Elige día y horario de recolección; ADA avisa a coordinación, vendedor y almacén.',
+    empresa:'Taller Mecánico Hermanos Ruiz', contacto:'Alejandro Ruiz', tel:'+52 55 3375 0192', pedido:'12603', factura:'090485659', tipo:'sucursal',
+    partidas:[{q:1,d:'Bomba de agua',p:1180},{q:2,d:'Banda de distribución',p:640},{q:3,d:'Anticongelante (4 L)',p:289}],
+    chofer:null, plan:{recoleccion:'recoge'} },
+  { id:'cancela', name:'Recoge en sucursal · pasa a cancelación', desc:'Usa «Simular que no responde» al elegir el día (3 días sin respuesta), o agenda y deja pasar la semana sin recoger.',
+    empresa:'Refacciones La Curva', contacto:'Sofía Morales', tel:'+52 55 4108 2296', pedido:'12611', factura:'090485671', tipo:'sucursal',
+    partidas:[{q:1,d:'Radiador de aluminio',p:2350},{q:2,d:'Termostato',p:310},{q:2,d:'Manguera superior de radiador',p:245}],
+    chofer:null, plan:{recoleccion:'no_recoge'} },
+  { id:'fallida', name:'Estándar · entrega fallida y reprogramación', desc:'La visita falla por domicilio cerrado: ADA informa el motivo y pide a la sucursal reprogramar. Cuando se reprograma, ADA retoma desde el aviso de ruta.',
+    empresa:'Lubricantes y Partes Del Valle', contacto:'Ricardo Valle', tel:'+52 55 2613 8845', pedido:'12618', factura:'090485684', tipo:'estandar',
+    partidas:[{q:6,d:'Aceite sintético 5W-30 (4 L)',p:720},{q:6,d:'Filtro de aire',p:185},{q:10,d:'Limpiaparabrisas 22"',p:129}],
+    chofer:{nombre:'Jorge Ramírez', tel:'+52 55 3920 1174'}, ruta:{id:'R-IZT-05', visitas:16, posicion:9}, plan:{intentos:['fallida','exitosa'], motivo:'Domicilio cerrado'} },
+];
+
+const S = { gen:0, sc:null, p:null, started:false, status:'idle', busy:false, steps:0, simMin:0, ask:null,
+  chats:{}, unread:{}, active:'principal', typing:null, transcript:[] };
+let sample = null;
+const now = () => hm(S.simMin);
+const total = () => S.sc.partidas.reduce((a,x) => a + x.q*x.p, 0);
+const tipoTxt = () => S.sc.tipo === 'estandar' ? 'Estándar' : 'Recoge en sucursal';
+function newP(){ return { etapa:'nuevo', confirm:'pendiente', facturado:false, factMin:null, intento:1, recibe:null, dia:null, horario:null, agendado:false, opciones:[], cancelAviso:false, cancelRazon:'', error:null, eta:null, win:null, recordatorio:0, encuesta:null, comentario:null, tags:[] }; }
+const winTxt = () => S.p.win ? `${hm(S.p.win[0])} a ${hm(S.p.win[1])}` : '';
+function setT(min){ S.simMin = Math.max(S.simMin, min); $('clock').textContent = dShort(S.simMin) + ' · ' + hm(S.simMin); }
+const bizTime = m => { const h = ((m % 1440) + 1440) % 1440; return h >= 20*60 ? at(dayOf(m)+1,9,0) : h < 8*60 ? at(dayOf(m),9,0) : m; };
+const tag = (t,c) => { S.p.tags.push([t,c]); renderState(); };
+
+/* Registro */
+const KIND = { trigger:'Disparador', in:'Entrada', ok:'Consulta', action:'Acción', info:'Regla', ai:'IA', wait:'En espera', warn:'Alerta', end:'Cierre' };
+function log(kind, title, d, code, chip) {
+  const ol = $('log'); ol.querySelector('.empty')?.remove(); ol.querySelectorAll('.live').forEach(n => n.classList.remove('live'));
+  S.steps++;
+  const cls = kind === 'ai' ? 'info' : kind === 'in' ? 'trigger' : kind;
+  const li = document.createElement('li'); li.className = 'step ' + cls + (kind === 'wait' ? ' live' : '');
+  const icon = { ok:'✓', warn:'!', end:'■' }[cls] || S.steps;
+  li.innerHTML = `<span class="t">${now()}</span><span class="dot">${icon}</span><div class="body"><div class="row1"><span class="title"></span><span class="chip">${chip || KIND[kind]}</span></div><div class="d"></div>${code ? '<pre></pre>' : ''}</div><span class="rail" aria-hidden="true"></span>`;
+  li.querySelector('.title').textContent = title; li.querySelector('.d').textContent = d || '';
+  if (code) li.querySelector('pre').textContent = typeof code === 'string' ? code : JSON.stringify(code, null, 2);
+  ol.appendChild(li); ol.scrollTop = ol.scrollHeight; $('logHint').textContent = `${S.steps} pasos`; return li;
+}
+async function L(g, ...a){ log(...a); await sleep(360); if (g !== S.gen) throw 'stale'; }
+function summary(t) { const ol = $('log'), s = document.createElement('li'); s.className = 'summary'; s.textContent = t; ol.appendChild(s); ol.scrollTop = ol.scrollHeight; }
+function emptyLog() {
+  $('log').innerHTML = `<li class="empty"><div class="caps">Qué hace ADA</div><ol>
+    <li><b>Avisa</b> que el pedido entró a SAP y pide al cliente confirmarlo.</li>
+    <li><b>Escala</b> al vendedor y a coordinación por correo si el pedido está mal.</li>
+    <li><b>Notifica</b> la facturación: agenda la recolección en sucursal o avisa que se prepara la entrega.</li>
+    <li><b>Acompaña</b> la ruta: confirma recepción, avisa que es el siguiente y cierra con encuesta o motivo de no entrega.</li>
+    <li><b>Informa</b> la cancelación de la factura cuando SAP la registra.</li></ol></li>`;
+  $('logHint').textContent = '0 pasos';
+}
+
+/* Chat */
+function renderTabs() {
+  $('tabs').innerHTML = Object.keys(CONTACTS).map(c => `<button class="tab" role="tab" type="button" aria-selected="${S.active===c}" data-c="${c}">${CONTACTS[c].tab}${S.unread[c] ? `<span class="n">${S.unread[c]}</span>` : ''}</button>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => setActive(b.dataset.c));
+}
+const initials = n => n.split(/\s+/).map(w => w[0]).join('').slice(0,2).toUpperCase();
+function renderChat() {
+  const c = S.active, info = CONTACTS[c];
+  $('chatHead').innerHTML = `<span class="av"></span><div><div class="nm"></div><div class="sub"></div></div><span class="wa${info.canal === 'Correo' ? ' mail' : ''}">${info.canal}</span>`;
+  $('chatHead').querySelector('.av').textContent = initials(info.name());
+  $('chatHead').querySelector('.nm').textContent = info.name(); $('chatHead').querySelector('.sub').textContent = info.sub();
+  const box = $('msgs'); box.innerHTML = '';
+  if (!S.chats[c].length) { const e = document.createElement('div'); e.className = 'sys'; e.textContent = S.started ? 'Sin mensajes en esta conversación.' : 'La conversación aparece cuando corre el flujo.'; box.appendChild(e); }
+  S.chats[c].forEach(m => box.appendChild(bubble(m)));
+  if (S.typing === c) { const t = document.createElement('div'); t.className = 'typing'; t.innerHTML = `${ADA}<span>ADA está escribiendo</span><span class="dots"><i></i><i></i><i></i></span>`; box.appendChild(t); }
+  box.scrollTop = box.scrollHeight; renderQuick(); renderTabs();
+}
+function fmt(text) {
+  return esc(text).replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
+    .replace(/\[\[(\w+):([A-Za-z0-9_-]+)\]\]/g, (m, tipo, id) => renderAttachment(tipo, id));
+}
+const THUMB = `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 7h3v7.5h-3zM6 14.5h6.1a1.6 1.6 0 0 0 1.57-1.28l.95-4.6A1.6 1.6 0 0 0 13.05 6.7H9.6l.55-2.75A1.5 1.5 0 0 0 8.68 2.2L6 6.8z" fill="currentColor"/></svg>`;
+function renderAttachment(tipo, id) {
+  if (tipo === 'TRACKING') return `<button type="button" class="vid trk" data-trk="1"><span class="ico"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5c0 3.4 4.5 8.5 4.5 8.5s4.5-5.1 4.5-8.5A4.5 4.5 0 0 0 8 1.5zm0 6.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4z" fill="#fff"/></svg></span><span class="txt"><b>Seguimiento en vivo</b><small>Ubicación de la unidad y hora estimada</small></span></button>`;
+  if (tipo === 'ENCUESTA') return `<span class="vote-row"><button type="button" class="vote" data-v="👍" aria-label="Calificar como buena">${THUMB}<span>Buena</span></button><button type="button" class="vote down" data-v="👎" aria-label="Calificar como mala">${THUMB}<span>Mala</span></button></span>`;
+  return '';
+}
+function bubble(m) {
+  const d = document.createElement('div');
+  if (m.dir === 'sys') { d.className = 'sys'; d.textContent = m.text; return d; }
+  d.className = 'msg ' + m.dir;
+  if (m.dir === 'out') { const f = document.createElement('div'); f.className = 'from'; f.innerHTML = ADA + `<span>${esc(FIRMA)}</span>`; d.appendChild(f); }
+  const b = document.createElement('span'); if (m.dir === 'out') b.innerHTML = m.html; else b.textContent = m.text; d.appendChild(b);
+  b.querySelectorAll('[data-trk]').forEach(el => {
+    const live = S.p.etapa === 'siguiente';
+    el.classList.toggle('off', !live); el.disabled = !live;
+    el.querySelector('small').textContent = live ? 'Ubicación de la unidad y hora estimada · toque para abrir' : 'Seguimiento finalizado: la visita ya se cerró';
+    el.onclick = () => openTracking();
+  });
+  b.querySelectorAll('.vote').forEach(v => {
+    const live = S.ask === 'encuesta' && canReply();
+    v.disabled = !live; v.classList.toggle('sel', (S.p.encuesta === 'positiva' && v.dataset.v === '👍') || (S.p.encuesta === 'negativa' && v.dataset.v === '👎'));
+    v.onclick = () => send(v.dataset.v);
+  });
+  const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = m.time + (m.dir === 'out' ? ' ✓✓' : ''); d.appendChild(meta); return d;
+}
+function setActive(c) { S.active = c; S.unread[c] = 0; renderChat(); }
+function push(c, m) { S.chats[c].push(m); if (c !== S.active) S.unread[c]++; renderChat(); }
+async function say(c, text) {
+  const g = S.gen; S.typing = c; renderChat(); await sleep(Math.min(1400, 450 + text.length * 4)); if (g !== S.gen) throw 'stale';
+  S.typing = null; push(c, { dir:'out', text, html:fmt(text), time:now() });
+  if (c === 'principal') S.transcript.push({ who:'ADA', text }); await sleep(200);
+}
+function sys(c, text) { push(c, { dir:'sys', text }); }
+function mail(m) { const text = `*Para:* ${m.to.join(', ')}\n*Asunto:* ${m.asunto}\n\n${m.cuerpo}`; push('correo', { dir:'out', text, html:fmt(text), time:now() }); }
+const canReply = () => CONTACTS[S.active].responde && (S.status === 'waiting' || S.status === 'resolved') && !S.busy;
+
+function quickFor() {
+  const P = S.p;
+  switch (S.ask) {
+    case 'confirma': return ['Sí, es correcto', 'No', 'No, no me respetaron el descuento', '¿Cuándo lo facturan?'];
+    case 'detalle': return ['Pedí 6 filtros y aparecen 10', 'El precio del kit no es el que me dieron', 'Me falta una pieza'];
+    case 'dia': return P.opciones.map(m => dShort(m));
+    case 'horario': return [...HORARIOS.map(h => h.l), 'Ninguno me queda'];
+    case 'recibir': return ['Sí, aquí estaremos', 'No, hoy no podré', '¿A qué hora llegan?'];
+    case 'encuesta': return ['👍', '👎'];
+    case 'mejora': return ['El chofer llegó fuera del horario', 'Faltó una pieza en la entrega'];
+    default:
+      if (P.etapa === 'entregado') return ['Gracias, todo llegó bien', 'Me llegó una pieza dañada'];
+      if (P.etapa === 'siguiente') return ['¿Dónde viene el chofer?', 'Quiero cambiar la dirección de entrega', 'Gracias'];
+      if (P.etapa === 'fallida' || P.etapa === 'reprogramada') return ['¿Cuándo me lo vuelven a traer?', '¿Lo puedo recoger en sucursal?'];
+      return ['¿Cómo va mi pedido?', 'Quiero cambiar la dirección de entrega', 'Gracias'];
+  }
+}
+function renderQuick() {
+  const qr = $('qr'); qr.innerHTML = ''; const can = canReply();
+  const show = CONTACTS[S.active].responde && (S.status === 'waiting' || S.status === 'resolved');
+  if (show) {
+    quickFor().forEach(o => { const b = document.createElement('button'); b.type = 'button'; b.textContent = o; b.disabled = !can; b.onclick = () => send(o); qr.appendChild(b); });
+    if (S.ask) { const g = document.createElement('button'); g.type = 'button'; g.className = 'ghost'; g.textContent = 'Simular que no responde'; g.disabled = !can; g.onclick = noReply; qr.appendChild(g); }
+  }
+  qr.hidden = !show; $('text').disabled = !can; $('sendBtn').disabled = !can;
+  const as = $('asWho');
+  if (show) { as.innerHTML = 'Respondes como <b></b>'; as.querySelector('b').textContent = CONTACTS[S.active].name(); }
+  else as.textContent = !CONTACTS[S.active].responde ? 'Vista de solo lectura en esta simulación.' : S.status === 'escalated' ? 'El caso pasó al agente de ventas: ADA ya no responde en este flujo.' : S.status === 'closed' ? 'El flujo terminó.' : 'Avanza con el botón del escenario para que corra el flujo.';
+  updateGo();
+}
+function updateGo() {
+  const b = $('go'); const ne = nextEvent(); let label;
+  if (S.status === 'waiting') label = 'Esperando respuesta del cliente';
+  else if (!ne) label = 'Flujo terminado';
+  else label = ne.label;
+  b.querySelector('.lbl').textContent = label;
+  b.disabled = S.busy || S.status === 'waiting' || !ne;
+}
+
+/* Ejecución */
+async function run(fn) { S.busy = true; document.body.dataset.busy = '1'; renderQuick(); const g = S.gen; try { await fn(g); } catch (e) { if (e !== 'stale') console.error(e); } finally { if (g === S.gen) { S.busy = false; document.body.dataset.busy = ''; renderChat(); } } }
+function reset() {
+  S.gen++; S.sc = SCENARIOS[+$('preset').value]; S.p = newP(); S.started = false; S.busy = false; document.body.dataset.busy = ''; S.steps = 0; S.typing = null; S.status = 'idle'; S.ask = null; S.transcript = [];
+  S.simMin = at(0,16,20); setT(S.simMin);
+  S.chats = {}; S.unread = {}; Object.keys(CONTACTS).forEach(c => { S.chats[c] = []; S.unread[c] = 0; }); S.active = 'principal';
+  $('presetDesc').textContent = S.sc.desc; prevKV = {}; emptyLog(); renderState(); renderChat();
+}
+
+const ETAPA = { nuevo:'Por ingresar', ingresado:'Ingresado en SAP', revision:'En revisión con ventas', facturado:'Facturado', ruta:'En ruta', siguiente:'Siguiente en ruta', fallida:'Visita fallida', reprogramada:'Reprogramado por sucursal', entregado:'Entregado', cancelado:'Factura cancelada' };
+let prevKV = {};
+function renderState() {
+  const sc = S.sc, P = S.p;
+  const kv = [
+    ['Pedido', '#' + sc.pedido], ['Tipo', tipoTxt()], ['Cliente', sc.empresa], ['Total', money(total())],
+    ['Etapa', ETAPA[P.etapa]], ['Factura', P.facturado ? sc.factura : '—'],
+    ['Confirmación', { pendiente:P.recordatorio ? 'Pendiente · recordatorio enviado' : 'Pendiente', si:'Correcto', no:'Incorrecto', sin:'Sin respuesta · escalado' }[P.confirm]],
+    sc.tipo === 'estandar' ? ['Llegada estimada', P.win && ['ruta','siguiente','entregado'].includes(P.etapa) ? `${winTxt()} · intento ${P.intento}` : `— · intento ${P.intento}`]
+      : ['Recolección', P.agendado ? `${dShort(P.dia)} · ${HORARIOS[P.horario].l}` : P.dia != null ? dShort(P.dia) + ' · sin horario' : '—'],
+  ];
+  const box = $('obj'); box.innerHTML = '';
+  kv.forEach(([k, v]) => {
+    const d = document.createElement('div'); d.className = 'kv';
+    d.innerHTML = '<div class="k"></div><div class="v"></div>'; d.querySelector('.k').textContent = k;
+    const vv = d.querySelector('.v'); vv.textContent = v;
+    if (prevKV[k] !== undefined && prevKV[k] !== v) { vv.classList.add('flash'); setTimeout(() => vv.classList.remove('flash'), 700); }
+    prevKV[k] = v; box.appendChild(d);
+  });
+  const t = document.createElement('div'); t.className = 'tags';
+  P.tags.forEach(([x, c]) => { const s = document.createElement('span'); s.className = 'tag ' + c; s.textContent = x; t.appendChild(s); });
+  box.appendChild(t);
+  $('objHint').textContent = `Sucursal ${SUCURSAL} · hora del centro de México`;
+}
+
+/* Máquina de eventos */
+function nextEvent() {
+  const P = S.p, plan = S.sc.plan;
+  if (!S.started) return { id:'ingresado', label:'Ingresar pedido (SGB → SAP)' };
+  if (S.status === 'escalated' || S.status === 'closed') return null;
+  switch (P.etapa) {
+    case 'ingresado': return { id:'facturado', label:'Facturista crea la factura' };
+    case 'facturado':
+      if (S.sc.tipo === 'estandar') return { id:'ruta', label:'Chofer inicia ruta' };
+      if (P.cancelAviso) return { id:'cancelada', label:'Cancelar factura en SAP' };
+      if (P.agendado) return plan.recoleccion === 'recoge' ? { id:'recogido', label:'Cliente recoge en sucursal' } : { id:'sin_recoger', label:'Pasa una semana sin recoger' };
+      return null;
+    case 'ruta': return P.recibe === 'no' ? { id:'fallida', label:'Chofer cierra visita como fallida' } : { id:'siguiente', label:'Chofer marca «Notificar»' };
+    case 'siguiente': return (plan.intentos || [])[P.intento-1] === 'fallida' ? { id:'fallida', label:'Chofer cierra visita como fallida' } : { id:'exitosa', label:'Chofer cierra visita como exitosa' };
+    case 'fallida': return { id:'reprogramada', label:'Sucursal reprograma la entrega' };
+    case 'reprogramada': return { id:'ruta', label:'Chofer inicia ruta (entrega reprogramada)' };
+    default: return null;
+  }
+}
+const ASK_TXT = {
+  confirma: '¿Su pedido es correcto? Responda *Sí* o *No*.',
+  detalle: '¿Nos podría indicar qué está incorrecto (pieza, cantidad, precio o descuento)?',
+  dia: '¿Qué día pasaría por su pedido? Elija una opción de la lista.',
+  horario: '¿En qué horario pasaría por su pedido? Elija una opción de la lista.',
+  recibir: '¿Podrá recibir su pedido? Responda *Sí* o *No*.',
+  encuesta: '¿Cómo calificaría su entrega? Elija *Buena* o *Mala*.',
+  mejora: '¿Nos podría contar brevemente qué podemos mejorar?',
+};
+const pend = () => S.ask ? '\n\n' + ASK_TXT[S.ask] : '';
+function ask(k) { S.ask = k; S.status = 'waiting'; }
+function settle() {
+  S.ask = null; S.status = 'resolved'; renderState();
+  const ne = nextEvent(); if (ne) log('wait', 'Esperando siguiente evento', `Próximo: ${ne.label}. Simúlalo con el botón del escenario.`);
+}
+const qDia = () => `¿Qué día pasaría por su pedido?\n${S.p.opciones.map((m,i) => `${i+1}. ${cap(dLong(m))}`).join('\n')}`;
+const qHorario = () => `¿En qué horario pasaría por su pedido?\n${HORARIOS.map((h,i) => `${i+1}. ${h.l}`).join('\n')}`;
+const T = {
+  confirmaSi: 'Gracias por su confirmación, próximamente le notificaremos del avance de su pedido.',
+  confirmaNo: 'Gracias por su confirmación, le notificaremos a su agente de ventas para que se ponga en contacto con usted lo más pronto posible.',
+  recibeSi: 'Le agradecemos por su confirmación. Cuando su pedido sea el siguiente en la ruta, le avisaremos que ya vamos en camino a su ubicación.',
+  recibeNo: 'Le agradecemos por su confirmación, le estaremos actualizando los próximos avances de su pedido.',
+  siguiente: 'Le informamos que su pedido es el siguiente en nuestra ruta de entrega. Le solicitamos estar atento a la llegada de nuestra unidad para recibirlo. Agradecemos su apoyo.',
+  encuesta: '¡Gracias por su compra y por confiar en nosotros! Su satisfacción es muy importante para nosotros. ¿Cómo calificaría su experiencia con nuestro servicio de entrega de hoy?\n\n[[ENCUESTA:satisfaccion]]',
+};
+const ficha = () => `*Cliente:* ${S.sc.empresa} (${S.sc.contacto})\n*WhatsApp:* ${S.sc.tel}\n*Pedido:* ${S.sc.pedido} · ${tipoTxt()}` + (S.p.facturado ? `\n*Factura:* ${S.sc.factura}` : '');
+
+async function doEvent(g, e) {
+  if (!e) return; const sc = S.sc, P = S.p;
+  switch (e.id) {
+  case 'ingresado': {
+    S.started = true; setT(at(0,16,20));
+    await L(g, 'trigger', 'Pedido ingresado en SAP', `El vendedor levantó el pedido #${sc.pedido} en SGB y viajó a SAP.`, { evento:'sap.pedido_venta.creado', origen:'SGB (tablet del vendedor)', pedido:sc.pedido, tipo:sc.tipo, sucursal:SUCURSAL });
+    await L(g, 'ok', 'Consultar pedido y contacto del cliente', 'Partidas, total y WhatsApp desde datos maestros.', { request:`GET /sap/pedidos/${sc.pedido}`, response:{ cliente:sc.empresa, contacto:sc.contacto, whatsapp:sc.tel, vendedor:PEOPLE.vendedor, partidas:sc.partidas.map(x => ({ cantidad:x.q, descripcion:x.d, precio_unitario:x.p })), total:total() } });
+    P.etapa = 'ingresado'; tag('Ingresado', 'ok');
+    await say('principal', `Hola, ${sc.contacto}. Le informamos que su pedido fue ingresado con los siguientes datos:\n\n*Número de pedido:* ${sc.pedido}\n*Tipo de pedido:* ${tipoTxt()}\n*Desglose del pedido:*\n${sc.partidas.map(x => `• ${x.q} × ${x.d}`).join('\n')}\n*Total:* ${money(total())}\n\n¿Su pedido es correcto? Responda *Sí* o *No*.`);
+    log('action', 'Enviar WhatsApp: pedido ingresado', 'Plantilla con número, tipo y desglose del pedido.', { to:sc.tel, plantilla:'pedido_ingresado', botones:['Sí','No'] });
+    ask('confirma'); log('wait', 'Esperando confirmación del cliente', '¿Su pedido es correcto? (Sí / No)');
+  } break;
+
+  case 'facturado': {
+    setT(at(dayOf(S.simMin)+1,10,5)); P.facturado = true; P.factMin = S.simMin; P.etapa = 'facturado';
+    await L(g, 'trigger', 'Factura creada en SAP', `La facturista de la sucursal facturó el pedido #${sc.pedido}.`, { evento:'sap.factura.creada', pedido:sc.pedido, factura:sc.factura, fecha:dShort(S.simMin) });
+    tag('Facturado', 'ok');
+    if (sc.tipo === 'estandar') {
+      await L(g, 'info', 'Regla: pedido Estándar', 'Avisar facturación y preparación. El siguiente aviso sale cuando el chofer inicie la ruta.');
+      await say('principal', `Le informamos que su pedido ha sido facturado con el número *${sc.factura}* y actualmente se encuentra en proceso de preparación para su entrega. Le notificaremos cuando su pedido salga a ruta para entregarse.`);
+      log('action', 'Enviar WhatsApp: pedido facturado', 'Aviso de facturación y preparación.', { to:sc.tel, plantilla:'pedido_facturado_estandar', factura:sc.factura });
+      settle();
+    } else {
+      const d0 = dayOf(S.simMin) + 1; P.opciones = [0,1,2,3,4,5,6].map(i => at(d0+i,0,0));
+      await L(g, 'info', 'Regla: pedido Recoge en sucursal', 'Ofrecer 7 días desde el día siguiente a la facturación y los 4 horarios de la sucursal.', { dias:P.opciones.map(dShort), horarios:HORARIOS.map(h => h.l) });
+      await say('principal', `Le informamos que su pedido ha sido facturado con el número *${sc.factura}* y puede pasar a recogerlo a la sucursal *${SUCURSAL}*.`);
+      log('action', 'Enviar WhatsApp: pedido facturado', 'Aviso de facturación para recoger en sucursal.', { to:sc.tel, plantilla:'pedido_facturado_sucursal', factura:sc.factura });
+      await say('principal', qDia());
+      log('action', 'Enviar lista: día de recolección', '7 opciones de día.');
+      ask('dia'); log('wait', 'Esperando día de recolección', 'Si no responde en 3 días, el pedido pasa a cancelación.');
+    }
+  } break;
+
+  case 'ruta': {
+    const second = P.etapa === 'reprogramada';
+    setT(at(dayOf(S.simMin)+1, 8, second ? 35 : 40)); P.etapa = 'ruta'; P.recibe = null;
+    await L(g, 'trigger', 'SimpliRoute: el chofer inició la ruta', `${sc.chofer.nombre} · ruta ${sc.ruta.id} · intento ${P.intento}.`, { evento:'route.started', ruta_id:sc.ruta.id, chofer:sc.chofer.nombre, visitas:sc.ruta.visitas, posicion_pedido:sc.ruta.posicion });
+    P.eta = S.simMin + 25 + (sc.ruta.posicion - 1) * 21;
+    const w0 = Math.round((P.eta - 30) / 30) * 30; P.win = [w0, w0 + 60];
+    await L(g, 'ok', 'Consultar hora estimada de la visita', `Visita ${sc.ruta.posicion} de ${sc.ruta.visitas} · llegada estimada ${hm(P.eta)}.`, { request:`GET /simpliroute/v1/routes/visits/V-${sc.pedido}`, response:{ ruta_id:sc.ruta.id, orden_en_ruta:sc.ruta.posicion, visitas_antes:sc.ruta.posicion - 1, estimated_time_arrival:hm(P.eta) } });
+    await L(g, 'info', 'Regla: ventana de entrega', 'Se comparte una ventana de 1 hora alrededor de la hora estimada, redondeada a la media hora.', { hora_estimada:hm(P.eta), ventana:winTxt() });
+    tag(second ? 'En ruta · reprogramado' : 'En ruta', 'brand');
+    await say('principal', `Le informamos que su pedido *${sc.pedido}* será entregado hoy en un horario aproximado de *${winTxt()}*.\n\n¿Podrá recibir su pedido? Responda *Sí* o *No*.`);
+    log('action', 'Enviar WhatsApp: pedido en ruta', 'Aviso de entrega con ventana horaria y pregunta de recepción.', { to:sc.tel, plantilla:'pedido_en_ruta', ventana:winTxt(), botones:['Sí','No'] });
+    ask('recibir'); log('wait', 'Esperando confirmación de recepción', 'Si no responde, el pedido sigue en ruta con el proceso normal.');
+  } break;
+
+  case 'siguiente': {
+    setT(Math.max(S.simMin + 5, P.eta - 14)); P.etapa = 'siguiente'; P.eta = S.simMin + 14;
+    await L(g, 'trigger', 'SimpliRoute: el chofer marcó «Notificar»', 'Terminó la visita anterior y va hacia este cliente: el chofer usa este botón en la app móvil.', { evento:'visit.notify', visita_id:`V-${sc.pedido}`, chofer:sc.chofer.nombre, posicion:sc.ruta.posicion });
+    tag('Siguiente en ruta', 'brand');
+    await L(g, 'ok', 'Generar link de seguimiento en vivo', 'SimpliRoute crea un link por visita con la ubicación del chofer y la hora estimada. Se desactiva al cerrar la visita.', { request:`POST /simpliroute/v1/visits/V-${sc.pedido}/tracking`, response:{ tracking_link:'<link único de la visita>', muestra:['ubicación del vehículo','hora estimada','chofer'], expira:'al cerrar la visita' } });
+    await say('principal', T.siguiente + `\n\nHora estimada de llegada: *${hm(P.eta)}*.\n\nPuede ver en vivo dónde va nuestra unidad aquí:\n[[TRACKING:V${sc.pedido}]]`);
+    log('action', 'Enviar WhatsApp: siguiente en ruta', 'Aviso con hora estimada recalculada y link de seguimiento en vivo.', { to:sc.tel, plantilla:'siguiente_en_ruta', eta:hm(P.eta), tracking_link:'<link único de la visita>' });
+    settle();
+  } break;
+
+  case 'exitosa': {
+    setT(S.simMin + 17); P.etapa = 'entregado';
+    await L(g, 'trigger', 'SimpliRoute: visita cerrada como exitosa', `${sc.chofer.nombre} entregó el pedido #${sc.pedido}.`, { evento:'visit.completed', status:'completed', visita_id:`V-${sc.pedido}`, firma:true, fotos:2 });
+    tag('Entregado', 'ok');
+    await say('principal', T.encuesta);
+    log('action', 'Enviar WhatsApp: encuesta de satisfacción', 'Botones de respuesta rápida: 👍 / 👎.', { to:sc.tel, plantilla:'encuesta_satisfaccion', botones:['👍 Buena','👎 Mala'] });
+    ask('encuesta'); log('wait', 'Esperando calificación', 'Si no responde en 24 h, la entrega queda sin calificar.');
+  } break;
+
+  case 'fallida': {
+    setT(S.simMin + 17);
+    const motivo = P.recibe === 'no' ? 'Cliente no disponible para recibir' : (sc.plan.motivo || 'Domicilio cerrado');
+    P.etapa = 'fallida'; P.motivo = motivo; P.win = null;
+    await L(g, 'trigger', 'SimpliRoute: visita cerrada como fallida', `Motivo registrado por el chofer: ${motivo}.`, { evento:'visit.failed', status:'failed', motivo, intento:P.intento });
+    tag('Fallida: ' + motivo, 'err');
+    await say('principal', `Le informamos que, por el siguiente motivo: *${motivo}*, su pedido no logró ser entregado. Lamentamos los inconvenientes que esto pudiera ocasionarle y agradecemos su comprensión. Le avisaremos por este medio cuando su entrega sea reprogramada.`);
+    log('action', 'Enviar WhatsApp: entrega fallida', 'Aviso con el motivo de no entrega.', { to:sc.tel, plantilla:'entrega_fallida', motivo });
+    mail({ to:[PEOPLE.coord, PEOPLE.vendedor], asunto:`Entrega fallida · Pedido ${sc.pedido} requiere reprogramación`, cuerpo:`${ficha()}\n*Motivo:* ${motivo}\n*Cliente informado:* sí, por WhatsApp.\n*Acción:* reprogramar la entrega en una nueva ruta.` });
+    log('action', 'Avisar a la sucursal por correo', 'Coordinación y vendedor: el pedido requiere reprogramación.', { to:[PEOPLE.coord, PEOPLE.vendedor], asunto:`Entrega fallida · Pedido ${sc.pedido} requiere reprogramación` });
+    await L(g, 'info', 'Regla: un intento por ruta', 'No hay segundo intento automático: la sucursal reprograma la entrega en una nueva ruta. Cuando SAP marque la factura en un nuevo proceso de entrega, ADA retoma desde el aviso de ruta (paso 3).');
+    log('end', 'Visita fallida: requiere reprogramación', 'Cliente informado del motivo y sucursal avisada.');
+    summary(`Resultado: el pedido ${sc.pedido} no se entregó (${motivo}). ADA informó al cliente y pidió a la sucursal reprogramar la entrega.`);
+    settle();
+  } break;
+
+  case 'reprogramada': {
+    setT(at(dayOf(S.simMin),18,0)); P.intento++; P.etapa = 'reprogramada';
+    await L(g, 'trigger', 'SAP: factura en nuevo proceso de entrega', `Factura ${sc.factura} · intento ${P.intento}.`, { evento:'sap.factura.nueva_entrega', factura:sc.factura, intento:P.intento });
+    tag('Reprogramado por sucursal', 'warn');
+    await L(g, 'info', 'Reinicio en el paso 3', 'El siguiente mensaje al cliente sale cuando el chofer inicie la nueva ruta.');
+    settle();
+  } break;
+
+  case 'recogido': {
+    setT(P.dia + HORARIOS[P.horario].h*60 + 22); P.etapa = 'entregado';
+    await L(g, 'trigger', 'SAP: pedido entregado en sucursal', `${sc.contacto} recogió el pedido #${sc.pedido}.`, { evento:'sap.entrega.sucursal', pedido:sc.pedido, factura:sc.factura });
+    tag('Recogido en sucursal', 'ok');
+    log('end', 'Recolección completada', 'El cliente recogió su pedido en la ventana agendada.');
+    summary(`Resultado: recolección agendada para el ${dLong(P.dia)} de ${HORARIOS[P.horario].l} y completada. Coordinación, vendedor y almacén recibieron el aviso por correo.`);
+    S.ask = null; S.status = 'closed';
+  } break;
+
+  case 'sin_recoger': {
+    setT(P.factMin + 7*1440);
+    await L(g, 'trigger', 'Timer: una semana sin recolección', 'Pasaron 7 días desde el aviso de facturación y el pedido no se recogió.', { regla:'no_recoge_7_dias', desde:dShort(P.factMin) });
+    await cancelNotice(g, 'no fue recogido en sucursal en el transcurso de una semana', 'El cliente no recogió el pedido en una semana.');
+  } break;
+
+  case 'cancelada': {
+    setT(at(dayOf(S.simMin)+1,9,30)); P.etapa = 'cancelado';
+    if (!P.cancelRazon) P.cancelRazon = 'no se logró entregar en ningún intento';
+    await L(g, 'trigger', 'SAP: factura cancelada', `Factura ${sc.factura} cancelada.`, { evento:'sap.factura.cancelada', factura:sc.factura, pedido:sc.pedido });
+    tag('Factura cancelada', 'err');
+    await say('principal', `Le informamos que la factura *${sc.factura}* de su pedido *${sc.pedido}* fue cancelada. Si tiene alguna duda, su agente de ventas con gusto le atiende.`);
+    log('action', 'Enviar WhatsApp: factura cancelada', 'Confirmación de cancelación.', { to:sc.tel, plantilla:'factura_cancelada' });
+    log('end', 'Flujo cerrado por cancelación', 'Motivo: ' + P.cancelRazon + '.');
+    summary(`Resultado: factura ${sc.factura} cancelada (${P.cancelRazon}). ADA avisó a la sucursal y al cliente antes y después de la cancelación.`);
+    S.ask = null; S.status = 'closed';
+  } break;
+  }
+}
+async function cancelNotice(g, razonCliente, razonInterna) {
+  const sc = S.sc, P = S.p; P.cancelRazon = razonInterna.replace(/\.$/, '').toLowerCase();
+  await L(g, 'warn', 'El pedido pasa a cancelación', razonInterna);
+  mail({ to:[PEOPLE.coord, PEOPLE.vendedor, PEOPLE.almacen], asunto:`Pedido ${sc.pedido} pasará a cancelación`, cuerpo:`${ficha()}\n*Motivo:* ${razonInterna}` });
+  log('action', 'Enviar correo: aviso de cancelación', 'Coordinación, vendedor y almacén.', { to:[PEOPLE.coord, PEOPLE.vendedor, PEOPLE.almacen], asunto:`Pedido ${sc.pedido} pasará a cancelación` });
+  await say('principal', `Le informamos que su pedido *${sc.pedido}* (factura ${sc.factura}) pasará a proceso de cancelación, ya que ${razonCliente}.`);
+  log('action', 'Enviar WhatsApp: aviso de cancelación', 'Aviso previo al cliente.', { to:sc.tel, plantilla:'aviso_cancelacion' });
+  P.cancelAviso = true; tag('Aviso de cancelación', 'warn'); settle();
+}
+function closeSurvey() {
+  const sc = S.sc, P = S.p;
+  log('end', 'Pedido entregado', `Entrega completada · encuesta: ${{ positiva:'👍 buena', negativa:'👎 mala', sin:'sin calificar' }[P.encuesta]}.`);
+  summary(`Resultado: pedido ${sc.pedido} entregado. Calificación del cliente: ${{ positiva:'buena (👍)', negativa:'mala (👎)', sin:'sin respuesta' }[P.encuesta]}${P.comentario ? ` · «${P.comentario}»` : ''}. El cliente recibió ${S.chats.principal.filter(m => m.dir === 'out').length} mensajes de ADA.`);
+  S.ask = null; S.status = 'closed'; renderState();
+}
+async function negativeMail(comentario) {
+  const sc = S.sc;
+  mail({ to:[PEOPLE.coord, PEOPLE.vendedor], asunto:`Encuesta negativa · Pedido ${sc.pedido}`, cuerpo:`${ficha()}\n*Calificación:* 👎 mala\n*Comentario del cliente:* ${comentario}\n*Chofer:* ${sc.chofer.nombre}` });
+  log('action', 'Avisar calificación negativa por correo', 'Coordinación y vendedor dan seguimiento.', { to:[PEOPLE.coord, PEOPLE.vendedor], comentario });
+}
+function noReply() {
+  if (!canReply() || !S.ask) return;
+  run(async g => {
+    const k = S.ask, P = S.p;
+    if (k === 'confirma' && !P.recordatorio) {
+      setT(bizTime(S.simMin + 240)); P.recordatorio = 1; renderState();
+      await L(g, 'trigger', 'Timer: 4 h sin confirmación', 'Primer intento sin respuesta: se reenvía la confirmación (en horario de 8:00 a 20:00).', { regla:'reintento_confirmacion', intento:2 });
+      await say('principal', `Hola, ${first(S.sc.contacto)}. Le recordamos confirmar su pedido *${S.sc.pedido}* por ${money(total())}.\n\n¿Su pedido es correcto? Responda *Sí* o *No*.`);
+      log('action', 'Reenviar WhatsApp: confirmación del pedido', 'Segundo intento de confirmación.', { to:S.sc.tel, plantilla:'recordatorio_confirmacion', intento:2 });
+      log('wait', 'Esperando confirmación (2.º intento)', 'Si tampoco responde, se escala al vendedor.');
+    } else if (k === 'confirma') {
+      setT(bizTime(S.simMin + 240)); P.confirm = 'sin';
+      await L(g, 'warn', 'Sin confirmación tras 2 intentos', 'Se escala al agente de ventas.');
+      mail({ to:[PEOPLE.vendedor], asunto:`Pedido ${S.sc.pedido} sin confirmar por el cliente`, cuerpo:`${ficha()}\n*Total:* ${money(total())}\n*Intentos de confirmación:* 2 por WhatsApp, sin respuesta.\n*Acción:* confirmar el pedido con el cliente.` });
+      log('action', 'Enviar correo al vendedor', 'Pedido sin confirmar tras 2 intentos.', { to:[PEOPLE.vendedor], asunto:`Pedido ${S.sc.pedido} sin confirmar por el cliente` });
+      tag('Sin confirmar · escalado', 'warn');
+      await L(g, 'info', 'El pedido sigue su proceso', 'El vendedor confirma con el cliente; ADA sigue notificando los avances.');
+      settle();
+    } else if (k === 'encuesta') {
+      setT(S.simMin + 1440); P.encuesta = 'sin';
+      await L(g, 'info', 'Sin calificación', 'Pasaron 24 h sin respuesta a la encuesta.');
+      closeSurvey();
+    } else if (k === 'mejora') {
+      setT(S.simMin + 1440);
+      await L(g, 'info', 'Sin comentario', 'Se registra la calificación negativa sin comentario.');
+      await negativeMail('sin comentario');
+      closeSurvey();
+    } else if (k === 'detalle') {
+      setT(S.simMin + 120);
+      await L(g, 'info', 'Sin detalle del error', 'Se escala igual, sin el detalle.');
+      await escalate(g, 'El cliente no indicó qué está incorrecto.');
+    } else if (k === 'dia' || k === 'horario') {
+      setT(S.simMin + 3*1440);
+      await L(g, 'trigger', 'Timer: 3 días sin respuesta', 'El cliente no eligió día u horario de recolección.', { regla:'sin_respuesta_3_dias', pregunta:k });
+      await cancelNotice(g, 'no recibimos su confirmación para recogerlo en sucursal', 'El cliente no respondió en 3 días para agendar la recolección.');
+    } else if (k === 'recibir') {
+      setT(S.simMin + 30);
+      await L(g, 'info', 'Sin respuesta del cliente', 'El pedido sigue en ruta con el proceso normal.');
+      settle();
+    }
+  });
+}
+async function escalate(g, detalle) {
+  const sc = S.sc, P = S.p; P.etapa = 'revision';
+  log('warn', 'Escalar a ventas', 'El cliente indicó que su pedido no es correcto.');
+  mail({ to:[PEOPLE.vendedor, PEOPLE.coord], asunto:`Pedido ${sc.pedido} reportado como incorrecto`, cuerpo:`${ficha()}\n*Total:* ${money(total())}\n*Qué reporta el cliente:* ${detalle}\n*Acción:* contactar al cliente para corregir el pedido antes de facturar.` });
+  log('action', 'Enviar correo a Vendedor y Coord. Administrativo', detalle, { to:[PEOPLE.vendedor, PEOPLE.coord], asunto:`Pedido ${sc.pedido} reportado como incorrecto` });
+  tag('Escalado a ventas', 'warn');
+  await say('principal', T.confirmaNo);
+  log('action', 'Responder por WhatsApp', 'Plantilla de pedido incorrecto.');
+  sys('principal', 'ADA avisó por correo al agente de ventas');
+  log('end', 'Escalado a ventas', 'El vendedor contacta al cliente para corregir el pedido.');
+  summary(`Resultado: pedido ${sc.pedido} reportado como incorrecto. Correo enviado a ${PEOPLE.vendedor} y ${PEOPLE.coord} con el detalle: «${detalle}».`);
+  S.ask = null; S.status = 'escalated'; renderState();
+}
+
+/* Conversación: IA con guion de respaldo */
+const ALLOWED = { confirma:['confirma_si','confirma_no'], detalle:['detalle_error'], dia:['elige_opcion'], horario:['elige_opcion','sin_opcion'], recibir:['recibe_si','recibe_no'], encuesta:['voto_positivo','voto_negativo'], mejora:['comentario_mejora'] };
+const COMMON = ['consulta','agradece','fuera_alcance','otro'];
+const allowed = () => [...(ALLOWED[S.ask] || []), ...COMMON];
+function estadoTxt() {
+  const sc = S.sc, P = S.p;
+  if (P.cancelAviso || P.etapa === 'cancelado') return `Su pedido *${sc.pedido}* está en proceso de cancelación.`;
+  switch (P.etapa) {
+    case 'ingresado': return `Su pedido *${sc.pedido}* ya está ingresado y en espera de facturación. Le avisaremos por este medio cuando se facture.`;
+    case 'facturado':
+      if (sc.tipo === 'estandar') return `Su pedido ya fue facturado (*${sc.factura}*) y está en preparación. Le avisaremos cuando salga a ruta.`;
+      return P.agendado ? `Su pedido lo espera en la sucursal ${SUCURSAL} el *${dLong(P.dia)}* de *${HORARIOS[P.horario].l}*.` : `Su pedido ya fue facturado y está listo para recogerse en la sucursal ${SUCURSAL}.`;
+    case 'ruta': return `Su pedido va en ruta y llegará hoy aproximadamente entre *${hm(P.win[0])} y ${hm(P.win[1])}*. Le avisaremos cuando sea el siguiente en la ruta.`;
+    case 'siguiente': return `Nuestra unidad va en camino y llegará aproximadamente a las *${hm(P.eta)}*. Puede ver en vivo dónde va en el link de seguimiento que le enviamos.`;
+    case 'fallida': case 'reprogramada': return 'Su sucursal programará el siguiente intento de entrega según sus rutas. Le avisaremos por este medio en cuanto su pedido salga nuevamente a ruta.';
+    case 'entregado': return `Su pedido *${sc.pedido}* ya fue entregado.`;
+    default: return `Su pedido *${sc.pedido}* está en proceso.`;
+  }
+}
+function pickDia(t) {
+  const o = S.p.opciones;
+  for (let i = 0; i < o.length; i++) { const d = dAt(o[i]).getUTCDay(); if (t.includes(norm(DOWL[d])) || new RegExp('\\b' + norm(DOW[d]) + '\\b').test(t)) return i+1; }
+  const nums = (t.match(/\d+/g) || []).map(Number);
+  for (const n of nums) { const i = o.findIndex(m => dAt(m).getUTCDate() === n); if (i >= 0) return i+1; }
+  for (const n of nums) if (n >= 1 && n <= o.length) return n;
+  if (/manana/.test(t)) return 1;
+  return 0;
+}
+function pickHora(t) {
+  for (let i = 0; i < HORARIOS.length; i++) if (t === norm(HORARIOS[i].l)) return i+1;
+  const nums = (t.match(/\d+/g) || []).map(Number); if (!nums.length) return 0;
+  if (nums.length === 1 && /^\s*\d\s*$/.test(t) && nums[0] >= 1 && nums[0] <= 4) return nums[0];
+  return ({10:1, 11:1, 12:2, 13:2, 3:3, 15:3, 4:4, 16:4})[nums[0]] || 0;
+}
+function rules(text) {
+  const t = norm(text);
+  const R = (intencion, respuesta = '', opcion = null, detalle = '') => ({ intencion, opcion, respuesta, detalle_error:detalle, resumen_vendedor:'' });
+  const yes = /^(si|claro|correcto|ok|okay|de acuerdo|perfecto|todo bien|esta bien|afirmativo)\b/.test(t) || /\b(es correcto|esta correcto|aqui estaremos|ahi estaremos|si podre|si puedo)\b/.test(t);
+  const no = /^no\b/.test(t) || /\b(incorrecto|no es correcto|me falta|falta|equivoc|error|no podre|no puedo|no estare|no estaremos|no me respetaron)\b/.test(t);
+  const errDet = /(falta|sobra|precio|descuento|promocion|codigo|cantidad|pedi|aparecen|pieza|equivoc|no es la|otra marca)/.test(t);
+  const out = /(cambiar|cambio|direccion|devol|danad|rota|roto|garantia|cotiza|agregar|otra pieza|recoger en sucursal|recogerlo|reagend|otro dia)/.test(t);
+  const q = /(\?|cuando|a que hora|hora|como va|estatus|estado|donde|llega|vuelven)/.test(t);
+  const thanks = /(gracias|excelente|muy bien|todo llego bien|buen dia|hola)/.test(t);
+  if (S.ask === 'confirma') {
+    if (no) return errDet ? R('confirma_no', '', null, text) : R('confirma_no');
+    if (yes) return R('confirma_si');
+  }
+  if (S.ask === 'detalle' && !/\?/.test(t)) return R('detalle_error', '', null, text);
+  if (S.ask === 'recibir') { if (no) return R('recibe_no'); if (yes) return R('recibe_si'); }
+  if (S.ask === 'encuesta') {
+    if (/👎|\bmala?\b|abajo|no me gusto|pesim|regular/.test(t)) return R('voto_negativo');
+    if (/👍|buen|bien|excelente|arriba|me gusto|perfect/.test(t)) return R('voto_positivo');
+  }
+  if (S.ask === 'mejora' && !/\?/.test(t)) return R('comentario_mejora', '', null, text);
+  if (S.ask === 'dia') { const i = pickDia(t); if (i) return R('elige_opcion', '', i); }
+  if (S.ask === 'horario') {
+    if (/(ninguno|ninguna|no puedo|otro horario|no me queda)/.test(t)) return R('sin_opcion', `Por ahora la sucursal ${SUCURSAL} entrega pedidos solo en estos horarios:\n${HORARIOS.map((h,i) => `${i+1}. ${h.l}`).join('\n')}\n\n¿Cuál le acomoda mejor?`);
+    const i = pickHora(t); if (i) return R('elige_opcion', '', i);
+  }
+  if (out) {
+    if (/(reagend|otro dia|vuelven)/.test(t) && !/(direccion|danad)/.test(t)) return R('consulta', estadoTxt() + pend());
+    return R('fuera_alcance', 'Entiendo. Le comparto su solicitud a su agente de ventas para que le dé seguimiento lo antes posible.' + pend());
+  }
+  if (q) return R('consulta', estadoTxt() + pend());
+  if (thanks) return R('agradece', (S.p.etapa === 'entregado' ? 'Con gusto. Gracias por su preferencia.' : 'Con gusto. Le seguiremos informando el avance de su pedido.') + pend());
+  return R('otro', 'Disculpe, no logré entender su mensaje.' + (pend() || ' ¿En qué le puedo ayudar con su pedido?'));
+}
+function normalize(r) {
+  r = r || {}; let it = String(r.intencion || 'otro');
+  if (!allowed().includes(it)) it = 'otro';
+  let op = parseInt(r.opcion, 10);
+  if (it === 'elige_opcion') { const max = S.ask === 'dia' ? S.p.opciones.length : HORARIOS.length; if (!(op >= 1 && op <= max)) it = 'otro'; } else op = null;
+  let resp = typeof r.respuesta === 'string' ? r.respuesta.trim() : '';
+  const FIXED = ['confirma_si','confirma_no','detalle_error','recibe_si','recibe_no','elige_opcion','voto_positivo','voto_negativo','comentario_mejora'];
+  if (FIXED.includes(it)) resp = '';
+  if (!resp) {
+    if (it === 'fuera_alcance') resp = 'Entiendo. Le comparto su solicitud a su agente de ventas para que le dé seguimiento lo antes posible.' + pend();
+    else if (it === 'sin_opcion') resp = `Por ahora la sucursal solo entrega en estos horarios:\n${HORARIOS.map((h,i) => `${i+1}. ${h.l}`).join('\n')}\n\n¿Cuál le acomoda mejor?`;
+    else if (it === 'consulta') resp = estadoTxt() + pend();
+    else if (!FIXED.includes(it)) resp = 'Disculpe, no logré entender su mensaje.' + (pend() || ' ¿En qué le puedo ayudar con su pedido?');
+  }
+  const det = typeof r.detalle_error === 'string' ? r.detalle_error.trim() : '';
+  return { intencion:it, opcion:op, respuesta:resp, detalle_error:det, resumen_vendedor:typeof r.resumen_vendedor === 'string' ? r.resumen_vendedor : '' };
+}
+function buildPrompt() {
+  const sc = S.sc, P = S.p;
+  const datos = {
+    cliente:sc.empresa, contacto:sc.contacto, sucursal:SUCURSAL, pedido:sc.pedido, tipo_pedido:tipoTxt(),
+    partidas:sc.partidas.map(x => ({ cantidad:x.q, descripcion:x.d, precio_unitario:x.p })), total:money(total()),
+    etapa_actual:ETAPA[P.etapa], factura:P.facturado ? sc.factura : null, intento_entrega:sc.tipo === 'estandar' ? P.intento : null,
+    recoleccion_agendada:P.agendado ? `${dLong(P.dia)}, ${HORARIOS[P.horario].l}` : null,
+    hora_estimada_entrega:['ruta','siguiente'].includes(P.etapa) ? (P.etapa === 'siguiente' ? hm(P.eta) : `entre ${hm(P.win[0])} y ${hm(P.win[1])}`) : null, fecha_hora_actual:`${dLong(S.simMin)} ${hm(S.simMin)}`, link_seguimiento_en_vivo:P.etapa === 'siguiente' ? 'enviado en el mensaje anterior' : null,
+    pregunta_pendiente:S.ask ? ASK_TXT[S.ask] : null,
+    opciones_dia:S.ask === 'dia' ? P.opciones.map((m,i) => `${i+1}. ${cap(dLong(m))}`) : undefined,
+    opciones_horario:S.ask === 'horario' ? HORARIOS.map((h,i) => `${i+1}. ${h.l}`) : undefined,
+  };
+  const conv = S.transcript.map(m => `${m.who}: ${m.text}`).join('\n');
+  return `Eres ADA, el agente de IA de SimpliRoute que acompaña por WhatsApp a los clientes de una distribuidora de autopartes (sucursal ${SUCURSAL}, México) desde que su pedido entra a SAP hasta que se entrega o se cancela. Es una simulación de preventa con datos de ejemplo; compórtate exactamente como en producción.
+PROPÓSITO: que el cliente sepa en qué va su pedido, confirmar que el pedido es correcto, agendar la recolección en sucursal y reducir entregas fallidas. ADA no toma pedidos ni reemplaza al vendedor.
+REGLAS DE COMUNICACIÓN: español de México, trato de usted, amable y breve (máximo 60 palabras), sin emojis, *negritas* estilo WhatsApp solo en datos clave. No inventes horas, fechas, montos, links ni datos que no estén en DATOS. No menciones el nombre de la empresa distribuidora.
+REGLAS DE NEGOCIO: ADA no reagenda entregas fallidas: la sucursal programa el siguiente intento según sus rutas y ADA avisa cuando salga a ruta. La hora estimada de entrega sale de la ruta de SimpliRoute (orden de la visita); solo existe cuando el pedido ya va en ruta y es aproximada: compártela como ventana, nunca como hora exacta garantizada. La recolección en sucursal solo se agenda con las opciones de la lista. Cuando el pedido es el siguiente en ruta, el cliente ya tiene un link de seguimiento en vivo: si pregunta dónde viene la unidad, dile que lo vea en ese link (nunca escribas una URL).
+PREGUNTA PENDIENTE: ${S.ask ? ASK_TXT[S.ask] : 'ninguna'}
+INTENCIONES VÁLIDAS AHORA: ${allowed().join(', ')}
+QUÉ HACER SEGÚN LO QUE ESCRIBA:
+1. "confirma_si" / "confirma_no": solo si la pregunta pendiente es si el pedido es correcto. Si dice que no y además explica qué está mal (pieza, código, cantidad, precio, descuento), copia esa explicación en "detalle_error".
+2. "detalle_error": la pregunta pendiente es qué está incorrecto y el cliente lo explica. Copia su explicación en "detalle_error".
+3. "elige_opcion": la pregunta pendiente es el día o el horario de recolección y elige una opción (por nombre del día, fecha, hora o número). Pon en "opcion" el número de la opción (1 = primera).
+4. "sin_opcion": la pregunta pendiente es el horario y ninguno le sirve. Responde que por ahora solo hay esos horarios, enlístalos y pregunta cuál le acomoda.
+5. "recibe_si" / "recibe_no": solo si la pregunta pendiente es si podrá recibir su pedido hoy.
+6. "consulta": pregunta por su pedido (estado, fecha, hora, factura, sucursal, nuevo intento). Responde solo con DATOS y REGLAS DE NEGOCIO.
+7. "fuera_alcance": pide algo que ADA no gestiona (cambiar dirección o productos, precios, devoluciones, piezas dañadas, garantías, recoger en sucursal un pedido Estándar). Di que pasarás su solicitud a su agente de ventas para que le dé seguimiento. Llena "resumen_vendedor" con una línea.
+8. "agradece": agradece o saluda. Responde breve y cordial.
+9. "otro": mensaje ambiguo. Pide amablemente que aclare.
+10. "voto_positivo" / "voto_negativo": solo si la pregunta pendiente es la calificación de la entrega (👍 o 👎, o palabras como buena/mala).
+11. "comentario_mejora": la pregunta pendiente es qué podemos mejorar y el cliente lo explica. Copia su explicación en "detalle_error".
+Si hay pregunta pendiente y la intención es de la 6 a la 9, termina la respuesta repitiendo la pregunta pendiente. Para 1, 2, 3, 5, 10 y 11 deja "respuesta" vacía: el sistema envía la plantilla aprobada.
+DATOS (JSON): ${JSON.stringify(datos)}
+CONVERSACIÓN HASTA AHORA:
+${conv}
+Responde SOLO con un objeto JSON: {"intencion":"…","opcion":null,"detalle_error":"","respuesta":"…","resumen_vendedor":""}`;
+}
+async function askAI() {
+  if (!sample) throw { code:'unavailable' };
+  const r = await sample.json(buildPrompt(), { modelTier:$('precise').checked ? 'default' : 'quick', cache:false });
+  if (!r || typeof r.intencion !== 'string') throw { code:'invalid_json' };
+  return r;
+}
+function send(text) {
+  text = (text || '').trim(); if (!text || !canReply()) return; $('text').value = '';
+  run(async g => {
+    setT(S.simMin + 2); push('principal', { dir:'in', text, time:now() }); S.transcript.push({ who:'Cliente', text });
+    log('in', 'Mensaje recibido', '“' + text + '”');
+    const pendiente = S.ask;
+    S.typing = 'principal'; renderChat();
+    let res, via, note = '';
+    try { res = await askAI(); via = 'IA ' + ($('precise').checked ? 'precisa' : 'rápida'); }
+    catch (e) {
+      const code = e && e.code;
+      if (['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(code)) { sample = null; setEngine('local'); }
+      if (code && code !== 'unavailable') note = ` La IA no respondió (${code}).`;
+      res = rules(text); via = 'guion local';
+    }
+    if (g !== S.gen) throw 'stale';
+    S.typing = null; res = normalize(res);
+    log('ai', 'Intención: ' + res.intencion, 'Motor: ' + via + '.' + note, { pregunta_pendiente:pendiente || 'ninguna', intencion:res.intencion, opcion:res.opcion, detalle_error:res.detalle_error || undefined });
+    await handle(g, res, text);
+  });
+}
+async function handle(g, res, text) {
+  const sc = S.sc, P = S.p;
+  switch (res.intencion) {
+    case 'confirma_si':
+      P.confirm = 'si'; tag('Confirmado por el cliente', 'ok');
+      await say('principal', T.confirmaSi);
+      log('action', 'Responder por WhatsApp', 'Confirmación registrada.', { pedido:sc.pedido, confirmacion:'correcto' });
+      settle(); break;
+    case 'confirma_no':
+      P.confirm = 'no'; renderState();
+      if (res.detalle_error) { await escalate(g, res.detalle_error); break; }
+      await say('principal', 'Gracias por avisarnos. ' + ASK_TXT.detalle);
+      log('action', 'Pedir detalle del error', 'Para que el vendedor reciba el caso completo.');
+      ask('detalle'); log('wait', 'Esperando detalle del error', 'Si no responde, se escala sin detalle.'); break;
+    case 'detalle_error':
+      await escalate(g, res.detalle_error || text); break;
+    case 'elige_opcion':
+      if (S.ask === 'dia') {
+        P.dia = P.opciones[res.opcion - 1]; renderState();
+        await say('principal', `Perfecto, el *${dLong(P.dia)}*.\n\n${qHorario()}`);
+        log('action', 'Enviar lista: horario de recolección', 'Día registrado: ' + dShort(P.dia) + '.', { dia:dShort(P.dia) });
+        ask('horario'); log('wait', 'Esperando horario de recolección', 'Si no responde en 3 días, el pedido pasa a cancelación.');
+      } else {
+        P.horario = res.opcion - 1; P.agendado = true; tag('Recolección agendada', 'brand');
+        const h = HORARIOS[P.horario].l;
+        await say('principal', `Listo, registramos su recolección para el *${dLong(P.dia)}* de *${h}* en la sucursal ${SUCURSAL}. Le esperamos.`);
+        log('action', 'Confirmar recolección por WhatsApp', `${dShort(P.dia)} · ${h}.`);
+        mail({ to:[PEOPLE.coord, PEOPLE.vendedor, PEOPLE.almacen], asunto:`Recolección agendada · Pedido ${sc.pedido}`, cuerpo:`${ficha()}\n*Recolección:* ${cap(dLong(P.dia))}, ${h}\n*Sucursal:* ${SUCURSAL}` });
+        log('action', 'Enviar correo: recolección agendada', 'Coordinación, vendedor y almacén.', { to:[PEOPLE.coord, PEOPLE.vendedor, PEOPLE.almacen], dia:dShort(P.dia), horario:h });
+        settle();
+      } break;
+    case 'sin_opcion':
+      await say('principal', res.respuesta);
+      log('action', 'Responder por WhatsApp', 'Se mantienen los horarios disponibles.');
+      log('wait', 'Esperando horario de recolección', ASK_TXT.horario); break;
+    case 'recibe_si':
+      P.recibe = 'si'; tag('Confirma recepción', 'ok');
+      await say('principal', T.recibeSi);
+      log('action', 'Responder por WhatsApp', 'Recepción confirmada.'); settle(); break;
+    case 'recibe_no':
+      P.recibe = 'no'; tag('No podrá recibir', 'warn');
+      await say('principal', T.recibeNo);
+      log('action', 'Responder por WhatsApp', 'Recepción no disponible.');
+      await say('chofer', `Hola, ${first(sc.chofer.nombre)}. El cliente *${sc.empresa}* (pedido ${sc.pedido}, factura ${sc.factura}) indicó que *no podrá recibir* su pedido hoy. Considéralo en tu ruta.`);
+      log('action', 'Avisar al chofer por WhatsApp', 'El chofer sabe que el cliente no podrá recibir.', { to:sc.chofer.tel, chofer:sc.chofer.nombre });
+      settle(); break;
+    case 'voto_positivo':
+      P.encuesta = 'positiva'; tag('Encuesta: 👍', 'ok');
+      await say('principal', '¡Muchas gracias por su calificación! Nos da gusto que su entrega haya sido buena.');
+      log('action', 'Registrar encuesta', 'Calificación positiva guardada.', { pedido:sc.pedido, calificacion:'positiva', chofer:sc.chofer.nombre, fecha:dShort(S.simMin) }, 'Registro');
+      closeSurvey(); break;
+    case 'voto_negativo':
+      P.encuesta = 'negativa'; tag('Encuesta: 👎', 'err');
+      await say('principal', 'Lamentamos que su experiencia no haya sido buena. ' + ASK_TXT.mejora);
+      log('action', 'Registrar encuesta', 'Calificación negativa guardada; ADA pide el motivo.', { pedido:sc.pedido, calificacion:'negativa', chofer:sc.chofer.nombre, fecha:dShort(S.simMin) }, 'Registro');
+      ask('mejora'); log('wait', 'Esperando comentario', 'Si no responde en 24 h, se registra sin comentario.'); break;
+    case 'comentario_mejora':
+      P.comentario = res.detalle_error || text; renderState();
+      await say('principal', 'Gracias por su comentario. Lo compartiremos con el equipo de la sucursal para mejorar nuestro servicio.');
+      log('action', 'Registrar comentario', 'Comentario agregado a la encuesta.', { pedido:sc.pedido, comentario:P.comentario }, 'Registro');
+      await negativeMail(P.comentario);
+      closeSurvey(); break;
+    case 'fuera_alcance':
+      await say('principal', res.respuesta);
+      log('action', 'Responder por WhatsApp', 'Solicitud canalizada.');
+      log('warn', 'Solicitud fuera de alcance', 'ADA no la gestiona: la pasa al agente de ventas por correo.');
+      mail({ to:[PEOPLE.vendedor], asunto:`Solicitud del cliente · Pedido ${sc.pedido}`, cuerpo:`${ficha()}\n*Etapa:* ${ETAPA[P.etapa]}\n*Solicitud:* “${text}”` + (res.resumen_vendedor ? `\n*Resumen:* ${res.resumen_vendedor}` : '') });
+      log('action', 'Enviar correo al vendedor', 'Con el mensaje del cliente.', { to:[PEOPLE.vendedor] });
+      if (S.ask) log('wait', 'Sigue pendiente', ASK_TXT[S.ask].replace(/\*/g, '')); break;
+    default:
+      await say('principal', res.respuesta);
+      log('action', 'Responder por WhatsApp', 'Mensaje entregado.');
+      if (S.ask) log('wait', 'Sigue pendiente', ASK_TXT[S.ask].replace(/\*/g, ''));
+  }
+}
+function openTracking() {
+  const sc = S.sc, P = S.p; if (P.etapa !== 'siguiente') return;
+  document.querySelector('.trk-modal')?.remove();
+  const pts = [[40,190],[150,190],[150,120],[250,120],[250,50],[318,50]];
+  const segs = []; let tot = 0; for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]); segs.push(l); tot += l; }
+  const posAt = f => { let d = f * tot; for (let i = 0; i < segs.length; i++) { if (d <= segs[i]) { const t = d / segs[i]; return [pts[i][0] + (pts[i+1][0]-pts[i][0])*t, pts[i][1] + (pts[i+1][1]-pts[i][1])*t]; } d -= segs[i]; } return pts[pts.length-1]; };
+  const poly = pts.map(p => p.join(',')).join(' ');
+  const m = document.createElement('div'); m.className = 'trk-modal'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true'); m.setAttribute('aria-label','Seguimiento en vivo');
+  m.innerHTML = `<div class="trk-card">
+    <div class="trk-h"><div><div class="caps">Seguimiento en vivo · vista simulada</div><b>Pedido ${esc(sc.pedido)}</b></div><button type="button" class="trk-x" aria-label="Cerrar">✕</button></div>
+    <svg class="trk-map" viewBox="0 0 360 230" role="img" aria-label="Mapa con la unidad en camino">
+      <rect width="360" height="230" fill="#EEF0F5"/>
+      <g stroke="#fff" stroke-width="12" stroke-linecap="round">${[50,120,190].map(y => `<line x1="0" y1="${y}" x2="360" y2="${y}"/>`).join('')}${[40,150,250,318].map(x => `<line x1="${x}" y1="0" x2="${x}" y2="230"/>`).join('')}</g>
+      <rect x="62" y="64" width="72" height="42" rx="6" fill="#E2F4EA"/><rect x="266" y="134" width="40" height="42" rx="6" fill="#E2F4EA"/>
+      <polyline points="${poly}" fill="none" stroke="#D4D0FB" stroke-width="5" stroke-linejoin="round" stroke-dasharray="2 7" stroke-linecap="round"/>
+      <polyline class="done" points="${poly}" fill="none" stroke="#4C3BEF" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" pathLength="1" stroke-dasharray="0 1"/>
+      <g transform="translate(318 50)"><path d="M0 0c-6-8-11-13-11-19a11 11 0 0 1 22 0c0 6-5 11-11 19z" fill="#0C0645"/><circle cy="-19" r="4" fill="#fff"/></g>
+      <g class="veh"><circle r="13" fill="#4C3BEF" opacity=".2"/><circle r="8" fill="#4C3BEF" stroke="#fff" stroke-width="2.5"/></g>
+    </svg>
+    <div class="trk-info">
+      <div class="kv"><div class="k">Llegada estimada</div><div class="v">${hm(P.eta)}</div></div>
+      <div class="kv"><div class="k">Llega en</div><div class="v trk-min"></div></div>
+      <div class="kv"><div class="k">Chofer</div><div class="v">${esc(sc.chofer.nombre)}</div></div>
+      <div class="kv"><div class="k">Destino</div><div class="v">${esc(sc.empresa)}</div></div>
+    </div>
+    <p class="trk-note">Así ve el cliente la página de seguimiento de SimpliRoute: la ubicación se actualiza sola y el link deja de funcionar al cerrar la visita.</p>
+  </div>`;
+  document.body.appendChild(m);
+  const veh = m.querySelector('.veh'), done = m.querySelector('.done'), min = m.querySelector('.trk-min');
+  const ETA_MIN = Math.max(1, P.eta - S.simMin), DUR = 24000, t0 = performance.now(), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let raf;
+  const draw = f => { const [x, y] = posAt(f); veh.setAttribute('transform', `translate(${x} ${y})`); done.setAttribute('stroke-dasharray', `${f} 1`); min.textContent = f >= 1 ? 'Llegando' : `~${Math.max(1, Math.round(ETA_MIN * (1 - f)))} min`; };
+  const tick = now => { const f = Math.min(0.92, 0.08 + (now - t0) / DUR); draw(f); if (f < 0.92) raf = requestAnimationFrame(tick); };
+  if (still) draw(0.4); else raf = requestAnimationFrame(tick);
+  const close = () => { cancelAnimationFrame(raf); m.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  m.querySelector('.trk-x').onclick = close; m.onclick = e => { if (e.target === m) close(); };
+  document.addEventListener('keydown', onKey); m.querySelector('.trk-x').focus();
+}
+function setEngine(st) { const el = $('engine'); el.textContent = st === 'ai' ? 'IA activa' : st === 'connecting' ? 'Conectando IA…' : 'Guion local'; el.classList.toggle('off', st !== 'ai'); }
+
+/* Arranque */
+SCENARIOS.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; $('preset').appendChild(o); });
+$('preset').addEventListener('change', reset);
+$('form').addEventListener('submit', e => { e.preventDefault(); if (!$('go').disabled) run(g => doEvent(g, nextEvent())); });
+$('reset').addEventListener('click', reset);
+$('composer').addEventListener('submit', e => { e.preventDefault(); send($('text').value); });
+reset(); setEngine('connecting');
+if (window.claude && typeof window.claude.use === 'function') window.claude.use('sample').then(s => { sample = s; setEngine(s ? 'ai' : 'local'); }).catch(() => setEngine('local'));
+else setEngine('local');
+})();
+</script>
+
+</body></html>
